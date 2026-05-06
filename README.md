@@ -80,11 +80,7 @@ SpendWise/
 
 ---
 
-## 📱 Screenshots
 
-| Dashboard | AI Insights | Expenses |
-| :---: | :---: | :---: |
-| ![Dashboard](https://via.placeholder.com/200x400?text=Dashboard) | ![AI Coach](https://via.placeholder.com/200x400?text=AI+Coach) | ![Expenses](https://via.placeholder.com/200x400?text=Expenses) |
 
 ---
 
@@ -92,9 +88,6 @@ SpendWise/
 
 Contributions are welcome! If you have suggestions for new features or improvements, feel free to open an issue or submit a pull request.
 
-## 📄 License
-
-This project is licensed under the MIT License.
 
 ---
 Built with ❤️ for better financial futures.
