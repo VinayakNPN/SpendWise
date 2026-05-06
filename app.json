@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Spend Wise",
+    "slug": "spend-wise",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-sqlite"
+    ],
+    "android": {
+      "package": "com.vinayak_52.spendwise"
+    },
+    "ios": {
+      "bundleIdentifier": "n",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "888363ea-3cdb-4ccb-9705-44be84436305"
+      }
+    },
+    "owner": "vinayak_52"
+  }
+}
