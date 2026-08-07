@@ -1,44 +1,48 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, Image } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { useAppStore } from "../state/AppStore";
-import { budgetSignals, categorySpend, categoryStatus, currentNoSpendStreak, topThreeCategories, weeklyReport } from "../utils/finance";
+import { useExpensesQuery, useCategoriesQuery } from "../state/queries";
+import { budgetSignals, categorySpend, categoryStatus, currentNoSpendStreak, topThreeCategories, weeklyReport, formatMoney, getLast30DaysSpend } from "../utils/finance";
 import { FadeInView } from "../components/FadeInView";
-import { GoalPlanner } from "../components/GoalPlanner";
 
 export const DashboardScreen = () => {
   const insets = useSafeAreaInsets();
-  const { expenses, budget } = useAppStore();
+  const { budget } = useAppStore();
+  const { data: expenses = [] } = useExpensesQuery();
+  const { data: categories = [] } = useCategoriesQuery();
+  
   const navigation = useNavigation<any>();
   const stats = budgetSignals(expenses, budget);
-  const cat = categorySpend(expenses);
-  const topThree = topThreeCategories(expenses);
+  
+  const pd = budget.paycheckDate || 1;
+  const cat = categorySpend(expenses, pd);
+  const topThree = topThreeCategories(expenses, pd);
   const streak = currentNoSpendStreak(expenses);
   const weekly = weeklyReport(expenses);
-  const categoryCards = [
-    { key: "Food", icon: "food-outline", color: "#F5E8D9", text: "#C78C4D" },
-    { key: "Rent", icon: "home-outline", color: "#EAF0EC", text: "#577A67" },
-    { key: "Transport", icon: "car-outline", color: "#E8EEF5", text: "#4F7AA4" },
-    { key: "Health", icon: "heart-outline", color: "#FCE8E8", text: "#D45A5A" },
-    { key: "Shopping", icon: "shopping-outline", color: "#FCE9E2", text: "#D36D4B" },
-    { key: "Sapna", icon: "star-outline", color: "#E8EDFA", text: "#6176B7" }
-  ];
-  const sortedCards = [...categoryCards].sort((a, b) => (cat[b.key] ?? 0) - (cat[a.key] ?? 0));
+  const last30Days = getLast30DaysSpend(expenses);
+
+  const sortedCards = [...categories].sort((a, b) => (cat[b.name] ?? 0) - (cat[a.name] ?? 0));
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 100) }]}>
-      <Text style={styles.section}>OVERVIEW</Text>
-      <Text style={styles.title}>{format(new Date(), "MMMM yyyy")}</Text>
+    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 100) }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <View>
+          <Text style={styles.section}>OVERVIEW</Text>
+          <Text style={styles.title}>{format(new Date(), "MMMM yyyy")}</Text>
+        </View>
+        <Image source={require('../../logo-cropped.png')} style={{ width: 48, height: 48, borderRadius: 12, opacity: 0.9 }} resizeMode="contain" />
+      </View>
 
       <FadeInView>
         <View style={styles.card}>
         <Text style={styles.cardLabel}>TOTAL SPENT</Text>
-        <Text style={styles.amount}>₹{Math.round(stats.monthSpent)}</Text>
+        <Text style={styles.amount}>{formatMoney(stats.monthSpent)}</Text>
         <Text style={styles.info}>
-          of ₹{budget.monthlyLimit.toLocaleString()} budget · {Math.round(stats.ratio * 100)}% used
+          of {formatMoney(budget.monthlyLimit || budget.monthlyIncome || 0)} limit · {Math.round(stats.ratio * 100)}% used
         </Text>
         <View style={styles.progressTrack}>
           <View style={[styles.progressBar, { width: `${Math.min(100, Math.round(stats.ratio * 100))}%` }]} />
@@ -46,18 +50,18 @@ export const DashboardScreen = () => {
         <View style={styles.statsRow}>
           <View>
             <Text style={styles.statLabel}>Avg / day</Text>
-            <Text style={styles.statValue}>₹{Math.round(stats.perDay)}</Text>
+            <Text style={styles.statValue}>{formatMoney(stats.perDay)}</Text>
           </View>
           <View>
             <Text style={styles.statLabel}>Ideal / day</Text>
-            <Text style={styles.statValue}>₹{Math.round(stats.idealPerDay)}</Text>
+            <Text style={styles.statValue}>{formatMoney(stats.idealPerDay)}</Text>
           </View>
           <View>
             <Text style={styles.statLabel}>Days left</Text>
             <Text style={styles.statValue}>{stats.daysLeft}</Text>
           </View>
         </View>
-        <Text style={styles.todaySafe}>You can safely spend ₹{Math.round(stats.safeToSpendToday)} today</Text>
+        <Text style={styles.todaySafe}>You can safely spend {formatMoney(stats.safeToSpendToday)} today</Text>
         {stats.paceRatio > 1.2 && <Text style={styles.paceWarn}>You are {stats.paceRatio.toFixed(1)}x above ideal pace</Text>}
         </View>
       </FadeInView>
@@ -67,11 +71,11 @@ export const DashboardScreen = () => {
         <Text style={styles.forecastTitle}>↗ AI Forecast</Text>
         <Text style={styles.forecastBody}>
           {stats.projectedOvershoot > 0
-            ? `At this rate, you will overshoot by ₹${Math.round(stats.projectedOvershoot)}`
+            ? `At this rate, you will overshoot by ${formatMoney(stats.projectedOvershoot)}`
             : "You are currently within monthly budget trajectory"}
         </Text>
         {stats.projectedOvershoot > 0 && (
-          <Text style={styles.forecastSub}>Reduce Food by about ₹{Math.max(50, Math.round(stats.projectedOvershoot / Math.max(1, stats.daysLeft || 1)))} / day to recover.</Text>
+          <Text style={styles.forecastSub}>Reduce spending by about {formatMoney(Math.max(50, stats.projectedOvershoot / Math.max(1, stats.daysLeft || 1)))} / day to recover.</Text>
         )}
         <Pressable style={styles.fixBtn} onPress={() => navigation.navigate("AI Coach")}>
           <Text style={styles.fixText}>Fix my spending</Text>
@@ -90,15 +94,31 @@ export const DashboardScreen = () => {
             </Text>
           )}
           <Text style={styles.catLimit}>
-            Days left {stats.daysLeft} vs Budget left ₹{Math.round(stats.budgetLeft)}
+            Days left {stats.daysLeft} vs Budget left {formatMoney(stats.budgetLeft)}
           </Text>
           {new Date().getDay() === 0 && (
             <Text style={styles.weeklyText}>
-              Weekly AI report: You spent ₹{Math.round(weekly.thisWeek)} this week ({weekly.diffPct >= 0 ? "+" : ""}
+              Weekly AI report: You spent {formatMoney(weekly.thisWeek)} this week ({weekly.diffPct >= 0 ? "+" : ""}
               {weekly.diffPct}% vs last week).
             </Text>
           )}
-          <Text style={styles.weeklyText}>No-spend day streak: {streak} day{streak === 1 ? "" : "s"}</Text>
+          <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: "#E9EEEB", paddingTop: 16 }}>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: "#1F2928", marginBottom: 8 }}>No-spend day streak: {streak} day{streak === 1 ? "" : "s"}</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
+              {last30Days.map((day, idx) => (
+                <View 
+                  key={idx} 
+                  style={{ 
+                    width: 14, 
+                    height: 14, 
+                    borderRadius: 3, 
+                    backgroundColor: day.noSpend ? "#2D8A73" : "#E2E8E5" 
+                  }} 
+                />
+              ))}
+            </View>
+            <Text style={{ fontSize: 11, color: "#8B9792", marginTop: 8 }}>Last 30 days activity</Text>
+          </View>
         </View>
       </FadeInView>
 
@@ -106,15 +126,15 @@ export const DashboardScreen = () => {
       <FadeInView delay={90}>
         <View style={styles.grid}>
         {sortedCards.map((c) => (
-          <Pressable key={c.key} style={styles.catCard} onPress={() => navigation.navigate("Expenses", { initialCategory: c.key })}>
-            <View style={[styles.iconWrap, { backgroundColor: c.color }]}>
-              <MaterialCommunityIcons name={c.icon as any} size={16} color={c.text} />
+          <Pressable key={c.id} style={styles.catCard} onPress={() => navigation.navigate("Expenses", { initialCategory: c.name })}>
+            <View style={[styles.iconWrap, { backgroundColor: c.color + "20" }]}>
+              <MaterialCommunityIcons name={c.icon as any} size={16} color={c.color} />
             </View>
-            <Text style={styles.catName}>{c.key}</Text>
+            <Text style={styles.catName}>{c.name}</Text>
             <View style={styles.catRow}>
-              <Text style={styles.catAmount}>₹{Math.round(cat[c.key] ?? 0)} / ₹{Math.round(budget.categoryLimits[c.key as keyof typeof budget.categoryLimits] ?? 0)}</Text>
-              <Text style={[styles.badge, { color: categoryStatus(cat[c.key] ?? 0, budget.categoryLimits[c.key as keyof typeof budget.categoryLimits] ?? 0).tone }]}>
-                {categoryStatus(cat[c.key] ?? 0, budget.categoryLimits[c.key as keyof typeof budget.categoryLimits] ?? 0).badge}
+              <Text style={styles.catAmount}>{formatMoney(cat[c.name] ?? 0)} / {formatMoney(c.monthly_limit || 0)}</Text>
+              <Text style={[styles.badge, { color: categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).tone }]}>
+                {categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).badge}
               </Text>
             </View>
             <View style={styles.catLimitLine}>
@@ -122,18 +142,19 @@ export const DashboardScreen = () => {
                 style={[
                   styles.catLimitFill,
                   {
-                    width: `${Math.min(100, Math.round(categoryStatus(cat[c.key] ?? 0, budget.categoryLimits[c.key as keyof typeof budget.categoryLimits] ?? 0).ratio * 100))}%`,
-                    backgroundColor: categoryStatus(cat[c.key] ?? 0, budget.categoryLimits[c.key as keyof typeof budget.categoryLimits] ?? 0).bar
+                    width: `${Math.min(100, Math.round(categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).ratio * 100))}%`,
+                    backgroundColor: categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).bar
                   }
                 ]}
               />
             </View>
           </Pressable>
         ))}
+        {categories.length === 0 && (
+          <Text style={styles.catLimit}>No categories found. Go to Settings to configure your categories.</Text>
+        )}
         </View>
       </FadeInView>
-
-      <GoalPlanner />
 
       <Pressable style={[styles.fab, { bottom: Math.max(insets.bottom, 20) + 70 }]} onPress={() => navigation.navigate("Expenses")}>
         <Feather name="plus" size={28} color="#FFFFFF" />

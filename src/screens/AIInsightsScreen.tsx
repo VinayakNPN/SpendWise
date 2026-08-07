@@ -4,14 +4,23 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppStore } from "../state/AppStore";
+import { useExpensesQuery, useAccountsQuery, useInvestmentsQuery, useGoalsQuery } from "../state/queries";
 import { askGroq } from "../services/groq";
-import { budgetSignals, categorySpend, monthlySpend, topThreeCategories, weeklyReport } from "../utils/finance";
+import { budgetSignals, categorySpend, monthlySpend, topThreeCategories, weeklyReport, formatMoney, calculateNetWorth } from "../utils/finance";
+import { calculateInvestmentProjections } from "../utils/investmentCalc";
 import type { ChatSession } from "../state/types";
 
 export const AIInsightsScreen = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { expenses, budget, aiHistory, chatSessions, addChatMessage, clearChatHistory, saveChatSession, clearAllSessions } = useAppStore();
+  const { budget, aiHistory, chatSessions, addChatMessage, clearChatHistory, saveChatSession, clearAllSessions } = useAppStore();
+  const { data: expenses = [] } = useExpensesQuery();
+  const { data: accounts = [] } = useAccountsQuery();
+  const { data: investments = [] } = useInvestmentsQuery();
+  const { data: goals = [] } = useGoalsQuery();
+  const projectedInvestments = investments.map(calculateInvestmentProjections);
+  const { netWorth } = calculateNetWorth(accounts, goals, projectedInvestments);
+
   const split = categorySpend(expenses);
   const top = topThreeCategories(expenses);
   const stats = budgetSignals(expenses, budget);
@@ -26,7 +35,7 @@ export const AIInsightsScreen = () => {
   aiHistoryRef.current = aiHistory;
   const suggestions = [
     "Where am I overspending?",
-    "How do I save ₹5000 this month?",
+    `How do I save ${formatMoney(5000)} this month?`,
     "Break down my top 3 expense categories"
   ];
 
@@ -34,11 +43,23 @@ export const AIInsightsScreen = () => {
     const isSunday = new Date().getDay() === 0;
     const tag = "Weekly AI report:";
     const alreadyPosted = aiHistory.some((msg) => msg.role === "assistant" && msg.text.includes(tag) && msg.createdAt.slice(0, 10) === new Date().toISOString().slice(0, 10));
+    
     if (isSunday && !alreadyPosted) {
-      addChatMessage({
-        role: "assistant",
-        text: `${tag} You spent ₹${Math.round(weekly.thisWeek)} this week and ${weekly.diffPct >= 0 ? "increased" : "reduced"} by ${Math.abs(weekly.diffPct)}% vs last week.`
-      });
+      const generateWeekly = async () => {
+        addChatMessage({ role: "assistant", text: `${tag} Generating your weekly analysis...` });
+        const context = `Weekly spend: ${formatMoney(weekly.thisWeek)}. Difference from last week: ${weekly.diffPct}%.`;
+        const prompt = "Write a very short (1-2 sentences) weekly financial review for the user based on their weekly spend context. Give a quick encouraging note.";
+        try {
+          const reply = await askGroq(prompt, context);
+          addChatMessage({ role: "assistant", text: `${tag} ${reply}` });
+        } catch {
+          addChatMessage({
+            role: "assistant",
+            text: `${tag} You spent ${formatMoney(weekly.thisWeek)} this week and ${weekly.diffPct >= 0 ? "increased" : "reduced"} by ${Math.abs(weekly.diffPct)}% vs last week.`
+          });
+        }
+      };
+      generateWeekly();
     }
   }, [aiHistory, addChatMessage, weekly.diffPct, weekly.thisWeek]);
 
@@ -72,14 +93,28 @@ export const AIInsightsScreen = () => {
     }, [])
   );
 
-  function fixSpending() {
-    const first = top[0];
-    const second = top[1];
-    const overshootPerDay = Math.max(80, Math.round(stats.projectedOvershoot / Math.max(1, stats.daysLeft || 1)));
-    const action = first
-      ? `Action plan: Cut ₹${overshootPerDay} from ${first.name}. Limit ${second?.name ?? "Transport"} to ₹${Math.max(120, Math.round((split[second?.name ?? "Transport"] ?? 0) / Math.max(1, new Date().getDate())))} / day. Pause non-essential spends for 3 days.`
-      : "Action plan: Log 5 days of expenses first, then tap Fix my spending.";
-    addChatMessage({ role: "assistant", text: action });
+  async function fixSpending() {
+    addChatMessage({ role: "user", text: "Fix my spending" });
+    setLoading(true);
+    const spend = monthlySpend(expenses);
+    const split = categorySpend(expenses);
+    const context = `Monthly budget: ${formatMoney(budget.monthlyLimit)}. Month spend: ${formatMoney(Math.round(spend))}. Category split: ${JSON.stringify(split)}. Top categories: ${JSON.stringify(top)}. Projected overshoot: ${formatMoney(stats.projectedOvershoot)}. Days left: ${stats.daysLeft}. Net Worth: ${formatMoney(netWorth)}.`;
+    const prompt = "Provide a very short, highly actionable plan to fix my overspending. Mention specific amounts to cut from my top categories to recover the projected overshoot. Be concise.";
+    
+    try {
+      const reply = await askGroq(prompt, context);
+      addChatMessage({ role: "assistant", text: reply });
+    } catch (error: any) {
+      addChatMessage({
+        role: "assistant",
+        text:
+          error?.message === "Missing EXPO_PUBLIC_GROQ_API_KEY"
+            ? "Add EXPO_PUBLIC_GROQ_API_KEY to run live Groq responses."
+            : "Could not reach Groq right now. Please try again."
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function submit(prompt: string) {
@@ -89,7 +124,7 @@ export const AIInsightsScreen = () => {
     setQuery("");
     const spend = monthlySpend(expenses);
     const split = categorySpend(expenses);
-    const context = `Monthly budget: ₹${budget.monthlyLimit}. Month spend: ₹${Math.round(spend)}. Category split: ${JSON.stringify(split)}.`;
+    const context = `Monthly budget: ${formatMoney(budget.monthlyLimit)}. Month spend: ${formatMoney(Math.round(spend))}. Category split: ${JSON.stringify(split)}. Net Worth: ${formatMoney(netWorth)}. Total Investments: ${investments.length}.`;
     try {
       const reply = await askGroq(prompt, context);
       addChatMessage({ role: "assistant", text: reply });
@@ -110,7 +145,7 @@ export const AIInsightsScreen = () => {
   const wrapperProps = {
     behavior: Platform.OS === "ios" ? "padding" as const : "height" as const,
     keyboardVerticalOffset: Platform.OS === "ios" ? 90 : 0,
-    style: styles.root
+    style: [styles.root, { paddingTop: Math.max(insets.top, 14) }]
   };
 
   return (
@@ -143,8 +178,8 @@ export const AIInsightsScreen = () => {
             <View style={styles.heroIcon}>
               <MaterialCommunityIcons name="creation-outline" size={30} color="#2D5950" />
             </View>
-            <Text style={styles.heroTitle}>Hi! I'm your AI money coach.</Text>
-            <Text style={styles.heroSub}>I see your expense data. Ask me anything.</Text>
+            <Text style={styles.heroTitle}>Hi! I'm your AI Wealth Manager.</Text>
+            <Text style={styles.heroSub}>I monitor your net worth, goals, and spending. Ask me anything.</Text>
             {suggestions.map((s) => (
               <Pressable key={s} style={styles.suggestion} onPress={() => submit(s)}>
                 <Text style={styles.suggestionText}>{s}</Text>

@@ -12,9 +12,10 @@ export type Expense = {
   id: string;
   name: string;
   amount: number;
-  category: ExpenseCategory;
+  category: ExpenseCategory | string;
   date: string;
   note?: string;
+  is_recurring?: boolean;
 };
 
 export type Investment = {
@@ -42,17 +43,50 @@ export type Goal = {
   title: string;
   targetAmount: number;
   timelineMonths: number;
-  category: GoalCategory;
-  priority: GoalPriority;
+  category: string;
+  priority: string;
   savedAmount: number;
   createdAt: string;
+  notes?: string;
+  isDebt: boolean;
+  completed: boolean;
+};
+
+export type Category = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  monthly_limit: number;
+  is_fixed: boolean;
+};
+
+export type AccountType = 'SAVINGS' | 'EMERGENCY_FUND';
+
+export type Account = {
+  id: string;
+  name: string;
+  type: AccountType;
+  balance: number;
+  target_months?: number; // Only used for EMERGENCY_FUND (e.g. 6 months)
+  notes?: string;
+  created_at: string;
+};
+
+export type Income = {
+  id: string;
+  source: string;
+  amount: number;
+  date: string;
+  is_recurring: boolean;
   notes?: string;
 };
 
 export type BudgetState = {
-  monthlyLimit: number;
   monthlyIncome?: number;
-  categoryLimits: Partial<Record<ExpenseCategory, number>>;
+  paycheckDate?: number; // 1-31
+  monthlyLimit: number; // Will be deprecated in favor of sum(categories) + extra incomes, but kept for legacy compat during transition
+  categoryLimits: Partial<Record<string, number>>; // Keyed by category ID now
 };
 
 export type ChatMessage = {

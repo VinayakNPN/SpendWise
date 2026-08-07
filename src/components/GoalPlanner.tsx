@@ -2,14 +2,22 @@ import React, { useState } from "react";
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAppStore } from "../state/AppStore";
+import { useExpensesQuery, useInvestmentsQuery, useGoalsQuery, useAddGoalMutation, useDeleteGoalMutation } from "../state/queries";
 import { getInvestableSurplus, calculateInvestmentProjections } from "../utils/investmentCalc";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-
-
 export const GoalPlanner = () => {
   const insets = useSafeAreaInsets();
-  const { goals, addGoal, deleteGoal, updateGoal, budget, expenses, investments } = useAppStore();
+  const { budget } = useAppStore();
+  const { data: expenses = [] } = useExpensesQuery();
+  const { data: investments = [] } = useInvestmentsQuery();
+  const { data: goals = [] } = useGoalsQuery();
+  const { mutate: addGoalMut } = useAddGoalMutation();
+  const { mutate: deleteGoalMut } = useDeleteGoalMutation();
+
+  const addGoal = (g: any) => addGoalMut(g);
+  const deleteGoal = (id: string) => deleteGoalMut(id);
+
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [targetAmount, setTargetAmount] = useState("");

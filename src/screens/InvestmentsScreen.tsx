@@ -2,13 +2,29 @@ import React, { useMemo, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { format, parse } from "date-fns";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import { useAppStore } from "../state/AppStore";
+import { useExpensesQuery, useInvestmentsQuery, useAddInvestmentMutation, useDeleteInvestmentMutation, useAccountsQuery, useGoalsQuery } from "../state/queries";
 import { calculateInvestmentProjections, getInvestableSurplus } from "../utils/investmentCalc";
+import { calculateNetWorth, formatMoney, formatInputMoney, parseInputMoney } from "../utils/finance";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export const InvestmentsScreen = () => {
   const insets = useSafeAreaInsets();
-  const { investments, addInvestment, deleteInvestment, budget, expenses } = useAppStore();
+  const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const { budget } = useAppStore();
+  const { data: expenses = [] } = useExpensesQuery();
+  const { data: investments = [] } = useInvestmentsQuery();
+  const { data: accounts = [] } = useAccountsQuery();
+  const { data: goals = [] } = useGoalsQuery();
+  
+  const { mutate: addInvestmentMut } = useAddInvestmentMutation();
+  const { mutate: deleteInvestmentMut } = useDeleteInvestmentMutation();
+
+  const addInvestment = (inv: any) => addInvestmentMut(inv);
+  const deleteInvestment = (id: string) => deleteInvestmentMut(id);
+
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState<any>("SIP");
@@ -24,6 +40,16 @@ export const InvestmentsScreen = () => {
   const [stepUpFreq, setStepUpFreq] = useState("12");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (route.params?.prefillGoal) {
+      const g = route.params.prefillGoal;
+      setName(g.name);
+      setAmount(String(g.targetAmount));
+      setShowForm(true);
+      navigation.setParams({ prefillGoal: undefined });
+    }
+  }, [route.params?.prefillGoal, navigation]);
 
   const surplus = getInvestableSurplus(budget, expenses);
 
@@ -41,6 +67,8 @@ export const InvestmentsScreen = () => {
   const totalProjectedInvested = projectedInvestments.reduce((acc, inv) => acc + inv.projectedInvested, 0);
   const totalProjectedFv = projectedInvestments.reduce((acc, inv) => acc + inv.projectedFv, 0);
   const totalProjectedReturns = totalProjectedFv - totalProjectedInvested;
+
+  const { netWorth, assets, liabilities, accountsTotal, investmentsTotal } = calculateNetWorth(accounts, goals, projectedInvestments);
 
   const handleSave = () => {
     if (!name || !amount || !tenure || !sipDate || !returnRate) {
@@ -88,11 +116,6 @@ export const InvestmentsScreen = () => {
     setShowForm(false);
   };
 
-  const formatMoney = (val: number) => {
-    if (Number.isNaN(val) || val == null) return "₹0";
-    return `₹${Math.round(val).toLocaleString('en-IN')}`;
-  };
-
   const bestPerforming = projectedInvestments.reduce((best, curr) => curr.projectedReturns > (best?.projectedReturns || 0) ? curr : best, projectedInvestments[0]);
 
   return (
@@ -101,7 +124,28 @@ export const InvestmentsScreen = () => {
       keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
       style={{ flex: 1 }}
     >
-      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 40) }]}>
+      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 40) }]}>
+        
+        <View style={styles.nwCard}>
+          <Text style={styles.nwTitle}>NET WORTH</Text>
+          <Text style={styles.nwAmount}>{formatMoney(netWorth)}</Text>
+          <View style={styles.nwRow}>
+            <View style={styles.nwCol}>
+              <Text style={styles.nwSub}>ASSETS</Text>
+              <Text style={styles.nwSubVal}>{formatMoney(assets)}</Text>
+            </View>
+            <View style={styles.nwDivider} />
+            <View style={styles.nwCol}>
+              <Text style={styles.nwSub}>LIABILITIES</Text>
+              <Text style={styles.nwSubVal}>{formatMoney(liabilities)}</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Accounts: {formatMoney(accountsTotal)}</Text>
+             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Investments (Current FV): {formatMoney(investmentsTotal)}</Text>
+          </View>
+        </View>
+
         <Text style={styles.section}>PORTFOLIO</Text>
       <View style={styles.titleRow}>
         <Text style={styles.title}>Investment Planner</Text>
@@ -173,7 +217,7 @@ export const InvestmentsScreen = () => {
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>AMOUNT/MO (₹)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={amount} onChangeText={setAmount} placeholder="5000" />
+              <TextInput style={styles.input} keyboardType="numeric" value={formatInputMoney(amount)} onChangeText={v => setAmount(parseInputMoney(v))} placeholder="5000" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>TENURE (MO)</Text>
@@ -326,6 +370,16 @@ export const InvestmentsScreen = () => {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#F4F6F5" },
   content: { padding: 18, paddingBottom: 34 },
+
+  nwCard: { backgroundColor: '#184B43', borderRadius: 20, padding: 20, marginBottom: 20 },
+  nwTitle: { color: '#8BB2A9', fontSize: 12, fontWeight: '700', letterSpacing: 1.5, marginBottom: 4 },
+  nwAmount: { color: '#FFFFFF', fontSize: 38, fontWeight: '800', marginBottom: 16 },
+  nwRow: { flexDirection: 'row', backgroundColor: '#215A52', borderRadius: 14, padding: 12 },
+  nwCol: { flex: 1, paddingHorizontal: 8 },
+  nwDivider: { width: 1, backgroundColor: '#3B736A', marginVertical: 4 },
+  nwSub: { color: '#8BB2A9', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
+  nwSubVal: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', marginTop: 2 },
+
   section: { color: "#8A9792", fontSize: 13, letterSpacing: 1.3, fontWeight: "700", marginTop: 10 },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   title: { color: "#1D2725", fontSize: 41 / 2, fontWeight: "800" },

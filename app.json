@@ -8,6 +8,12 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "icon": "./logo-cropped.png",
+    "splash": {
+      "image": "./logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F1A17"
+    },
     "plugins": [
       "expo-sqlite"
     ],
@@ -24,6 +30,9 @@
       "eas": {
         "projectId": "888363ea-3cdb-4ccb-9705-44be84436305"
       }
+    },
+    "updates": {
+      "enabled": false
     },
     "owner": "vinayak_52"
   }

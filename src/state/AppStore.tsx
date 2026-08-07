@@ -1,25 +1,13 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { format } from "date-fns";
-import type { BudgetState, ChatMessage, ChatSession, Expense, Investment, UserPreferences, Goal } from "./types";
+import type { BudgetState, ChatMessage, ChatSession, UserPreferences } from "./types";
 
 type StoreType = {
-  expenses: Expense[];
-  investments: Investment[];
-  goals: Goal[];
   budget: BudgetState;
   aiHistory: ChatMessage[];
   chatSessions: ChatSession[];
   preferences: UserPreferences;
-  addExpense: (expense: Omit<Expense, "id">) => void;
-  deleteExpense: (id: string) => void;
-  updateExpense: (id: string, patch: Partial<Expense>) => void;
   setBudget: (budget: BudgetState) => void;
-  addInvestment: (inv: Omit<Investment, "id">) => void;
-  deleteInvestment: (id: string) => void;
-  addGoal: (goal: Omit<Goal, "id" | "createdAt">) => void;
-  updateGoal: (id: string, patch: Partial<Goal>) => void;
-  deleteGoal: (id: string) => void;
   addChatMessage: (msg: Omit<ChatMessage, "id" | "createdAt">) => void;
   clearChatHistory: () => void;
   saveChatSession: (session: Omit<ChatSession, "id" | "createdAt">) => void;
@@ -51,9 +39,6 @@ const KEY = "spend-wise-store-v1";
 const AppStore = createContext<StoreType | null>(null);
 
 export const AppStoreProvider = ({ children }: { children: React.ReactNode }) => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [investments, setInvestments] = useState<Investment[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [budget, setBudget] = useState<BudgetState>(defaultBudget);
   const [aiHistory, setAiHistory] = useState<ChatMessage[]>([]);
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -63,9 +48,6 @@ export const AppStoreProvider = ({ children }: { children: React.ReactNode }) =>
     AsyncStorage.getItem(KEY).then((raw) => {
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      setExpenses(parsed.expenses ?? []);
-      setInvestments(parsed.investments ?? []);
-      setGoals(parsed.goals ?? []);
       setBudget(parsed.budget ?? defaultBudget);
       setAiHistory(parsed.aiHistory ?? []);
       setChatSessions(parsed.chatSessions ?? []);
@@ -74,32 +56,16 @@ export const AppStoreProvider = ({ children }: { children: React.ReactNode }) =>
   }, []);
 
   useEffect(() => {
-    AsyncStorage.setItem(KEY, JSON.stringify({ expenses, investments, goals, budget, aiHistory, chatSessions, preferences }));
-  }, [expenses, investments, goals, budget, aiHistory, chatSessions, preferences]);
+    AsyncStorage.setItem(KEY, JSON.stringify({ budget, aiHistory, chatSessions, preferences }));
+  }, [budget, aiHistory, chatSessions, preferences]);
 
   const value = useMemo<StoreType>(
     () => ({
-      expenses,
-      investments,
-      goals,
       budget,
       aiHistory,
       chatSessions,
       preferences,
-      addExpense: (expense) =>
-        setExpenses((prev) => [{ ...expense, id: `${Date.now()}-${Math.random()}` }, ...prev]),
-      deleteExpense: (id) => setExpenses((prev) => prev.filter((e) => e.id !== id)),
-      updateExpense: (id, patch) =>
-        setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))),
       setBudget,
-      addInvestment: (inv) =>
-        setInvestments((prev) => [{ ...inv, id: `${format(new Date(), "T")}-${Math.random()}` }, ...prev]),
-      deleteInvestment: (id) => setInvestments((prev) => prev.filter((i) => i.id !== id)),
-      addGoal: (goal) =>
-        setGoals((prev) => [{ ...goal, id: `${Date.now()}-${Math.random()}`, createdAt: new Date().toISOString() }, ...prev]),
-      updateGoal: (id, patch) =>
-        setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g))),
-      deleteGoal: (id) => setGoals((prev) => prev.filter((g) => g.id !== id)),
       addChatMessage: (msg) =>
         setAiHistory((prev) => [
           ...prev,
@@ -115,7 +81,7 @@ export const AppStoreProvider = ({ children }: { children: React.ReactNode }) =>
       clearAllSessions: () => setChatSessions([]),
       setPreferences
     }),
-    [expenses, investments, goals, budget, aiHistory, chatSessions, preferences]
+    [budget, aiHistory, chatSessions, preferences]
   );
 
   return <AppStore.Provider value={value}>{children}</AppStore.Provider>;
