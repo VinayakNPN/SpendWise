@@ -70,7 +70,7 @@ export const initDatabase = async () => {
       defaults.forEach(d => {
         db.runSync(
           `INSERT INTO categories (id, name, icon, color, monthly_limit, is_fixed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [d.id, d.name, d.icon, d.color, d.limit, d.fixed, new Date().toISOString()]
+          d.id, d.name, d.icon, d.color, d.limit, d.fixed, new Date().toISOString()
         );
       });
     }
@@ -192,11 +192,11 @@ export const autoLogRecurringExpenses = () => {
 
     fixedCategories.forEach(cat => {
       if (!cat.monthly_limit) return;
-      const existing = db.getFirstSync<any>(`SELECT id FROM expenses WHERE category = ? AND is_deleted = 0 AND date LIKE ?`, [cat.name, `${currentMonth}%`]);
+      const existing = db.getFirstSync<any>(`SELECT id FROM expenses WHERE category = ? AND is_deleted = 0 AND date LIKE ?`, cat.name, `${currentMonth}%`);
       if (!existing) {
         db.runSync(
           `INSERT INTO expenses (id, name, amount, category, date, created_at, is_recurring) VALUES (?, ?, ?, ?, ?, ?, 1)`,
-          [uuidv4(), cat.name, cat.monthly_limit, cat.name, now.toISOString(), now.toISOString()]
+          uuidv4(), cat.name, cat.monthly_limit, cat.name, now.toISOString(), now.toISOString()
         );
       }
     });
@@ -215,7 +215,7 @@ export const addExpense = (data: Omit<Expense, 'id'>) => {
   const now = new Date().toISOString();
   db.runSync(
     `INSERT INTO expenses (id, name, amount, category, note, date, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-    [id, data.name, data.amount, data.category, data.note || null, data.date, now]
+    id, data.name, data.amount, data.category, data.note || null, data.date, now
   );
   return id;
 };
@@ -235,7 +235,7 @@ export const getAllExpenses = (): Expense[] => {
 export const getExpensesByMonth = (month: string): Expense[] => {
   const rows = db.getAllSync<any>(
     `SELECT * FROM expenses WHERE is_deleted = 0 AND date LIKE ? ORDER BY date DESC`,
-    [`${month}%`]
+    `${month}%`
   );
   return rows.map(r => ({
     id: r.id,
@@ -264,11 +264,11 @@ export const updateExpense = (id: string, data: Partial<Expense>) => {
   sets.push(`updated_at = ?`, `sync_status = ?`);
   params.push(new Date().toISOString(), 'pending', id);
 
-  db.runSync(`UPDATE expenses SET ${sets.join(', ')} WHERE id = ?`, params);
+  db.runSync(`UPDATE expenses SET ${sets.join(', ')} WHERE id = ?`, ...params);
 };
 
 export const deleteExpense = (id: string) => {
-  db.runSync(`UPDATE expenses SET is_deleted = 1, sync_status = 'pending', updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+  db.runSync(`UPDATE expenses SET is_deleted = 1, sync_status = 'pending', updated_at = ? WHERE id = ?`, new Date().toISOString(), id);
 };
 
 // --- GOAL FUNCTIONS ---
@@ -278,7 +278,7 @@ export const addGoal = (data: Omit<Goal, 'id' | 'createdAt'>) => {
   const now = new Date().toISOString();
   db.runSync(
     `INSERT INTO goals (id, title, target_amount, timeline_months, category, priority, saved_amount, is_debt, completed, notes, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-    [id, data.title, data.targetAmount, data.timelineMonths, data.category || null, data.priority || null, data.savedAmount || 0, data.isDebt ? 1 : 0, data.completed ? 1 : 0, data.notes || null, now]
+    id, data.title, data.targetAmount, data.timelineMonths, data.category || null, data.priority || null, data.savedAmount || 0, data.isDebt ? 1 : 0, data.completed ? 1 : 0, data.notes || null, now
   );
   return id;
 };
@@ -332,11 +332,11 @@ export const updateGoal = (id: string, data: Partial<Goal>) => {
   sets.push(`updated_at = ?`, `sync_status = ?`);
   params.push(new Date().toISOString(), 'pending', id);
 
-  db.runSync(`UPDATE goals SET ${sets.join(', ')} WHERE id = ?`, params);
+  db.runSync(`UPDATE goals SET ${sets.join(', ')} WHERE id = ?`, ...params);
 };
 
 export const deleteGoal = (id: string) => {
-  db.runSync(`UPDATE goals SET is_deleted = 1, sync_status = 'pending', updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+  db.runSync(`UPDATE goals SET is_deleted = 1, sync_status = 'pending', updated_at = ? WHERE id = ?`, new Date().toISOString(), id);
 };
 
 // --- INVESTMENT FUNCTIONS ---
@@ -347,11 +347,9 @@ export const addInvestment = (data: Omit<Investment, 'id'>) => {
   db.runSync(
     `INSERT INTO investments (id, name, type, monthly_amount, start_date, tenure_months, expected_return, compounding, step_up_enabled, step_up_rate, step_up_frequency, sip_day, notes, created_at, sync_status) 
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-    [
-      id, data.name, data.type, data.monthly_amount, data.startDate, data.tenureMonths, 
-      data.expected_annual_return, data.compounding_frequency, data.step_up_enabled ? 1 : 0, 
-      data.step_up_rate, data.step_up_frequency, data.sip_day, data.notes || null, now
-    ]
+    id, data.name, data.type, data.monthly_amount, data.startDate, data.tenureMonths, 
+    data.expected_annual_return, data.compounding_frequency, data.step_up_enabled ? 1 : 0, 
+    data.step_up_rate, data.step_up_frequency, data.sip_day, data.notes || null, now
   );
   return id;
 };
@@ -410,11 +408,11 @@ export const updateInvestment = (id: string, data: Partial<Investment>) => {
   sets.push(`updated_at = ?`, `sync_status = ?`);
   params.push(new Date().toISOString(), 'pending', id);
 
-  db.runSync(`UPDATE investments SET ${sets.join(', ')} WHERE id = ?`, params);
+  db.runSync(`UPDATE investments SET ${sets.join(', ')} WHERE id = ?`, ...params);
 };
 
 export const deleteInvestment = (id: string) => {
-  db.runSync(`UPDATE investments SET is_deleted = 1, sync_status = 'pending', updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+  db.runSync(`UPDATE investments SET is_deleted = 1, sync_status = 'pending', updated_at = ? WHERE id = ?`, new Date().toISOString(), id);
 };
 
 // --- CATEGORY FUNCTIONS ---
@@ -436,7 +434,7 @@ export const addCategory = (data: Omit<Category, 'id'>) => {
   const now = new Date().toISOString();
   db.runSync(
     `INSERT INTO categories (id, name, icon, color, monthly_limit, is_fixed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, data.name, data.icon, data.color, data.monthly_limit, data.is_fixed ? 1 : 0, now]
+    id, data.name, data.icon, data.color, data.monthly_limit, data.is_fixed ? 1 : 0, now
   );
   return id;
 };
@@ -466,11 +464,11 @@ export const updateCategory = (id: string, data: Partial<Category>) => {
   sets.push(`updated_at = ?`);
   params.push(new Date().toISOString(), id);
 
-  db.runSync(`UPDATE categories SET ${sets.join(', ')} WHERE id = ?`, params);
+  db.runSync(`UPDATE categories SET ${sets.join(', ')} WHERE id = ?`, ...params);
 };
 
 export const deleteCategory = (id: string) => {
-  db.runSync(`UPDATE categories SET is_deleted = 1, updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+  db.runSync(`UPDATE categories SET is_deleted = 1, updated_at = ? WHERE id = ?`, new Date().toISOString(), id);
 };
 
 // --- INCOME FUNCTIONS ---
@@ -492,7 +490,7 @@ export const addIncome = (data: Omit<Income, 'id'>) => {
   const now = new Date().toISOString();
   db.runSync(
     `INSERT INTO incomes (id, source, amount, date, is_recurring, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, data.source, data.amount, data.date, data.is_recurring ? 1 : 0, data.notes || null, now]
+    id, data.source, data.amount, data.date, data.is_recurring ? 1 : 0, data.notes || null, now
   );
   return id;
 };
@@ -522,11 +520,11 @@ export const updateIncome = (id: string, data: Partial<Income>) => {
   sets.push(`updated_at = ?`);
   params.push(new Date().toISOString(), id);
 
-  db.runSync(`UPDATE incomes SET ${sets.join(', ')} WHERE id = ?`, params);
+  db.runSync(`UPDATE incomes SET ${sets.join(', ')} WHERE id = ?`, ...params);
 };
 
 export const deleteIncome = (id: string) => {
-  db.runSync(`UPDATE incomes SET is_deleted = 1, updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+  db.runSync(`UPDATE incomes SET is_deleted = 1, updated_at = ? WHERE id = ?`, new Date().toISOString(), id);
 };
 
 // --- ACCOUNT FUNCTIONS ---
@@ -549,7 +547,7 @@ export const addAccount = (data: Omit<Account, 'id' | 'created_at'>) => {
   const now = new Date().toISOString();
   db.runSync(
     `INSERT INTO accounts (id, name, type, balance, target_months, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, data.name, data.type, data.balance || 0, data.target_months || null, data.notes || null, now]
+    id, data.name, data.type, data.balance || 0, data.target_months || null, data.notes || null, now
   );
   return id;
 };
@@ -578,9 +576,9 @@ export const updateAccount = (id: string, data: Partial<Account>) => {
   sets.push(`updated_at = ?`);
   params.push(new Date().toISOString(), id);
 
-  db.runSync(`UPDATE accounts SET ${sets.join(', ')} WHERE id = ?`, params);
+  db.runSync(`UPDATE accounts SET ${sets.join(', ')} WHERE id = ?`, ...params);
 };
 
 export const deleteAccount = (id: string) => {
-  db.runSync(`UPDATE accounts SET is_deleted = 1, updated_at = ? WHERE id = ?`, [new Date().toISOString(), id]);
+  db.runSync(`UPDATE accounts SET is_deleted = 1, updated_at = ? WHERE id = ?`, new Date().toISOString(), id);
 };

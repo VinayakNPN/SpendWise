@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { format, parse } from "date-fns";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useAppStore } from "../state/AppStore";
-import { useExpensesQuery, useInvestmentsQuery, useAddInvestmentMutation, useDeleteInvestmentMutation, useAccountsQuery, useGoalsQuery } from "../state/queries";
+import { useExpensesQuery, useInvestmentsQuery, useAddInvestmentMutation, useDeleteInvestmentMutation, useAccountsQuery, useGoalsQuery, useIncomesQuery } from "../state/queries";
 import { calculateInvestmentProjections, getInvestableSurplus } from "../utils/investmentCalc";
 import { calculateNetWorth, formatMoney, formatInputMoney, parseInputMoney } from "../utils/finance";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +18,7 @@ export const InvestmentsScreen = () => {
   const { data: investments = [] } = useInvestmentsQuery();
   const { data: accounts = [] } = useAccountsQuery();
   const { data: goals = [] } = useGoalsQuery();
+  const { data: incomes = [] } = useIncomesQuery();
   
   const { mutate: addInvestmentMut } = useAddInvestmentMutation();
   const { mutate: deleteInvestmentMut } = useDeleteInvestmentMutation();
@@ -68,7 +69,7 @@ export const InvestmentsScreen = () => {
   const totalProjectedFv = projectedInvestments.reduce((acc, inv) => acc + inv.projectedFv, 0);
   const totalProjectedReturns = totalProjectedFv - totalProjectedInvested;
 
-  const { netWorth, assets, liabilities, accountsTotal, investmentsTotal } = calculateNetWorth(accounts, goals, projectedInvestments);
+  const { netWorth, assets, liabilities, accountsTotal, investmentsTotal, extraIncomesTotal } = calculateNetWorth(accounts, goals, projectedInvestments, incomes);
 
   const handleSave = () => {
     if (!name || !amount || !tenure || !sipDate || !returnRate) {
@@ -142,7 +143,8 @@ export const InvestmentsScreen = () => {
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
              <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Accounts: {formatMoney(accountsTotal)}</Text>
-             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Investments (Current FV): {formatMoney(investmentsTotal)}</Text>
+             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Investments (FV): {formatMoney(investmentsTotal)}</Text>
+             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Extra Income: {formatMoney(extraIncomesTotal)}</Text>
           </View>
         </View>
 

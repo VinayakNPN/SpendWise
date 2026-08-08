@@ -1,16 +1,17 @@
 import { differenceInCalendarDays, endOfMonth, isSameMonth, startOfWeek, subWeeks, subDays, format } from "date-fns";
-import type { BudgetState, Expense, Account, Goal, Investment } from "../state/types";
+import type { BudgetState, Expense, Account, Goal, Investment, Income } from "../state/types";
 
-export const calculateNetWorth = (accounts: Account[], goals: Goal[], projectedInvestments: any[]) => {
+export const calculateNetWorth = (accounts: Account[], goals: Goal[], projectedInvestments: any[], incomes: Income[] = []) => {
   const accountsTotal = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
   const investmentsTotal = projectedInvestments.reduce((sum, inv) => sum + (inv.currentFv || 0), 0);
-  const assets = accountsTotal + investmentsTotal;
+  const extraIncomesTotal = incomes.reduce((sum, inc) => sum + (inc.amount || 0), 0);
+  const assets = accountsTotal + investmentsTotal + extraIncomesTotal;
   
   const liabilities = goals
     .filter(g => g.isDebt && !g.completed)
     .reduce((sum, g) => sum + Math.max(0, g.targetAmount - (g.savedAmount || 0)), 0);
     
-  return { netWorth: assets - liabilities, assets, liabilities, accountsTotal, investmentsTotal };
+  return { netWorth: assets - liabilities, assets, liabilities, accountsTotal, investmentsTotal, extraIncomesTotal };
 };
 
 export const formatMoney = (val: number | string | undefined | null) => {
