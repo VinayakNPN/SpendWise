@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Alert } from 'react-native';
 import {
   getAllExpenses, addExpense as dbAddExpense, deleteExpense as dbDeleteExpense, updateExpense as dbUpdateExpense,
   getInvestments, addInvestment as dbAddInvestment, deleteInvestment as dbDeleteInvestment, updateInvestment as dbUpdateInvestment,
@@ -23,6 +24,7 @@ export const useAddExpenseMutation = () => {
   return useMutation({
     mutationFn: async (expense: Omit<Expense, 'id'>) => dbAddExpense(expense),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to add expense: ${error.message}`),
   });
 };
 
@@ -31,6 +33,7 @@ export const useUpdateExpenseMutation = () => {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Expense> }) => dbUpdateExpense(id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to update expense: ${error.message}`),
   });
 };
 
@@ -39,6 +42,7 @@ export const useDeleteExpenseMutation = () => {
   return useMutation({
     mutationFn: async (id: string) => dbDeleteExpense(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to delete expense: ${error.message}`),
   });
 };
 
@@ -56,6 +60,7 @@ export const useAddInvestmentMutation = () => {
   return useMutation({
     mutationFn: async (inv: Omit<Investment, 'id'>) => dbAddInvestment(inv),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['investments'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to add investment: ${error.message}`),
   });
 };
 
@@ -64,6 +69,7 @@ export const useUpdateInvestmentMutation = () => {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Investment> }) => dbUpdateInvestment(id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['investments'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to update investment: ${error.message}`),
   });
 };
 
@@ -72,6 +78,7 @@ export const useDeleteInvestmentMutation = () => {
   return useMutation({
     mutationFn: async (id: string) => dbDeleteInvestment(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['investments'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to delete investment: ${error.message}`),
   });
 };
 
@@ -89,6 +96,7 @@ export const useAddGoalMutation = () => {
   return useMutation({
     mutationFn: async (goal: Omit<Goal, 'id' | 'createdAt'>) => dbAddGoal(goal),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to add goal: ${error.message}`),
   });
 };
 
@@ -97,6 +105,7 @@ export const useUpdateGoalMutation = () => {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Goal> }) => dbUpdateGoal(id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to update goal: ${error.message}`),
   });
 };
 
@@ -105,6 +114,7 @@ export const useDeleteGoalMutation = () => {
   return useMutation({
     mutationFn: async (id: string) => dbDeleteGoal(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to delete goal: ${error.message}`),
   });
 };
 
@@ -122,6 +132,7 @@ export const useAddCategoryMutation = () => {
   return useMutation({
     mutationFn: async (cat: Omit<Category, 'id'>) => dbAddCategory(cat),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to add category: ${error.message}`),
   });
 };
 
@@ -130,6 +141,7 @@ export const useUpdateCategoryMutation = () => {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Category> }) => dbUpdateCategory(id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to update category: ${error.message}`),
   });
 };
 
@@ -138,6 +150,7 @@ export const useDeleteCategoryMutation = () => {
   return useMutation({
     mutationFn: async (id: string) => dbDeleteCategory(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to delete category: ${error.message}`),
   });
 };
 
@@ -155,6 +168,7 @@ export const useAddIncomeMutation = () => {
   return useMutation({
     mutationFn: async (inc: Omit<Income, 'id'>) => dbAddIncome(inc),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to add income: ${error.message}`),
   });
 };
 
@@ -163,6 +177,7 @@ export const useUpdateIncomeMutation = () => {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Income> }) => dbUpdateIncome(id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to update income: ${error.message}`),
   });
 };
 
@@ -171,6 +186,7 @@ export const useDeleteIncomeMutation = () => {
   return useMutation({
     mutationFn: async (id: string) => dbDeleteIncome(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to delete income: ${error.message}`),
   });
 };
 
@@ -188,6 +204,7 @@ export const useAddAccountMutation = () => {
   return useMutation({
     mutationFn: async (acc: Omit<Account, 'id' | 'created_at'>) => dbAddAccount(acc),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to add account: ${error.message}`),
   });
 };
 
@@ -196,6 +213,7 @@ export const useUpdateAccountMutation = () => {
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Account> }) => dbUpdateAccount(id, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to update account: ${error.message}`),
   });
 };
 
@@ -204,5 +222,6 @@ export const useDeleteAccountMutation = () => {
   return useMutation({
     mutationFn: async (id: string) => dbDeleteAccount(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+    onError: (error) => Alert.alert('Database Error', `Failed to delete account: ${error.message}`),
   });
 };
