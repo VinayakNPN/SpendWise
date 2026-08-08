@@ -1,71 +1,116 @@
-# 💰 SpendWise: Your AI-Powered Financial Companion
+<div align="center">
+  
+  <h1>S P E N D W I S E</h1>
+  <p><b>Your Intelligent Financial Companion</b></p>
+  
+  <p>
+    A sophisticated, local-first personal finance management application built with <strong>React Native</strong> and <strong>Expo</strong>. Combining traditional expense tracking with cutting-edge AI insights to help you master your money.
+  </p>
 
-SpendWise is a sophisticated, local-first personal finance management application built with **React Native** and **Expo**. It combines traditional expense tracking with cutting-edge AI insights to help users master their money.
+  <br />
 
----
+  <a href="#features">Features</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="#tech-stack">Tech Stack</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="#getting-started">Getting Started</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="#project-structure">Architecture</a>
+  
+</div>
 
-## ✨ Key Features
+<br />
+<hr />
 
-- 📊 **Smart Dashboard**: A high-level overview of your net worth, monthly spending, and budget health at a glance.
-- 💸 **Expense Tracking**: Seamlessly record income and expenses with categorized entries and persistent SQLite storage.
-- 🎯 **Goal Planner**: Define your financial milestones—whether it's a new home, a car, or an emergency fund—and track your progress in real-time.
-- 📈 **Investment Portfolio**: Manage your assets (Stocks, Crypto, Mutual Funds) and calculate potential returns with built-in investment calculators.
-- 🤖 **AI Financial Coach**: Get personalized, actionable financial advice powered by **Groq AI (Llama 3.3)**. Ask questions about your spending habits or get tips on saving.
-- 🔔 **Smart Notifications**: Never miss a bill or overspend with integrated local notifications.
-- 🔒 **Privacy First**: All your sensitive financial data is stored locally on your device using SQLite.
+<h2 id="features">Key Features</h2>
 
----
+<table>
+  <tr>
+    <td width="50%">
+      <h3>Smart Dashboard</h3>
+      <p>A high-level overview of your net worth, monthly spending, and budget health at a glance.</p>
+    </td>
+    <td width="50%">
+      <h3>Expense Tracking</h3>
+      <p>Seamlessly record income and expenses with categorized entries and persistent SQLite storage.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>Goal Planner</h3>
+      <p>Define your financial milestones—whether it is a new home, a car, or an emergency fund—and track your progress in real-time.</p>
+    </td>
+    <td width="50%">
+      <h3>Investment Portfolio</h3>
+      <p>Manage your assets and calculate potential returns with built-in investment projection calculators.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>AI Financial Coach</h3>
+      <p>Get personalized, actionable financial advice powered by <strong>Groq AI (Llama 3.3)</strong>. Ask questions about your spending habits or get tips on saving.</p>
+    </td>
+    <td width="50%">
+      <h3>Privacy First & Smart Alerts</h3>
+      <p>All sensitive financial data is stored locally on your device. Never miss a bill or overspend with integrated local notifications.</p>
+    </td>
+  </tr>
+</table>
 
-## 🛠️ Tech Stack
+<br />
 
-- **Framework**: [Expo](https://expo.dev/) (React Native)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Database**: [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/) (Local Storage)
-- **AI Engine**: [Groq Cloud API](https://groq.com/) (Llama 3.3 70b Versatile)
-- **State Management**: React Context API + Custom Store
-- **Navigation**: [React Navigation](https://reactnavigation.org/)
-- **Animations**: [React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/)
+<h2 id="tech-stack">Tech Stack</h2>
 
----
+<details>
+  <summary><b>Click to expand architecture details</b></summary>
+  <br />
+  <ul>
+    <li><b>Framework:</b> <a href="https://expo.dev/">Expo</a> (React Native)</li>
+    <li><b>Language:</b> <a href="https://www.typescriptlang.org/">TypeScript</a></li>
+    <li><b>Database:</b> <a href="https://docs.expo.dev/versions/latest/sdk/sqlite/">expo-sqlite</a> (Local Storage)</li>
+    <li><b>AI Engine:</b> <a href="https://groq.com/">Groq Cloud API</a> (Llama 3.3 70b Versatile)</li>
+    <li><b>State Management:</b> React Context API + Custom Store</li>
+    <li><b>Navigation:</b> <a href="https://reactnavigation.org/">React Navigation</a></li>
+    <li><b>Animations:</b> <a href="https://docs.swmansion.com/react-native-reanimated/">React Native Reanimated</a></li>
+  </ul>
+</details>
 
-## 🚀 Getting Started
+<br />
 
-### Prerequisites
+<h2 id="getting-started">Getting Started</h2>
 
-- Node.js (v18 or higher)
-- npm or yarn
-- Expo Go app on your mobile device (or Android Studio/Xcode for emulators)
+<blockquote>
+  <p><strong>Prerequisites:</strong> Node.js (v18 or higher), npm or yarn, and the Expo Go app on your mobile device (or Android Studio/Xcode for emulators).</p>
+</blockquote>
 
-### Installation
+### 1. Clone the repository
+```bash
+git clone https://github.com/VinayakNPN/SpendWise.git
+cd SpendWise
+```
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/VinayakNPN/SpendWise.git
-   cd SpendWise
-   ```
+### 2. Install dependencies
+```bash
+npm install
+```
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+### 3. Environment Setup
+Create a `.env` file in the root directory and add your Groq API key:
+```env
+EXPO_PUBLIC_GROQ_API_KEY=your_groq_api_key_here
+```
 
-3. **Environment Setup**:
-   Create a `.env` file in the root directory and add your Groq API key:
-   ```env
-   EXPO_PUBLIC_GROQ_API_KEY=your_groq_api_key_here
-   ```
+### 4. Run the application
+```bash
+npx expo start
+```
+*Scan the QR code with Expo Go (Android) or the Camera app (iOS) to open the app.*
 
-4. **Run the application**:
-   ```bash
-   npx expo start
-   ```
-   Scan the QR code with **Expo Go** (Android) or the **Camera app** (iOS) to open the app.
+<br />
 
----
+<h2 id="project-structure">Project Structure</h2>
 
-## 📂 Project Structure
-
-```text
+<pre>
 SpendWise/
 ├── src/
 │   ├── components/    # Reusable UI components (FadeInView, GoalPlanner, etc.)
@@ -76,18 +121,13 @@ SpendWise/
 ├── App.tsx            # Main application entry point & navigation
 ├── app.json           # Expo configuration
 └── package.json       # Project dependencies and scripts
-```
+</pre>
 
----
+<br />
+<hr />
 
-
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! If you have suggestions for new features or improvements, feel free to open an issue or submit a pull request.
-
-
----
-Built with ❤️ for better financial futures.
+<div align="center">
+  <p>Contributions are welcome! If you have suggestions for new features or improvements, feel free to open an issue or submit a pull request.</p>
+  <br />
+  <p><i>Designed by Vinayak</i></p>
+</div>
