@@ -28,6 +28,7 @@ export const initDatabase = async () => {
     
     try { db.execSync(`ALTER TABLE expenses ADD COLUMN is_recurring INTEGER DEFAULT 0;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE expenses ADD COLUMN sync_status TEXT DEFAULT 'pending';`); } catch (e) {}
+    try { db.execSync(`ALTER TABLE expenses ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
     // Incomes Table
     db.execSync(`
@@ -46,6 +47,7 @@ export const initDatabase = async () => {
 
     try { db.execSync(`ALTER TABLE incomes ADD COLUMN is_recurring INTEGER DEFAULT 0;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE incomes ADD COLUMN notes TEXT;`); } catch (e) {}
+    try { db.execSync(`ALTER TABLE incomes ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
     // Categories Table
     db.execSync(`
@@ -65,6 +67,7 @@ export const initDatabase = async () => {
     try { db.execSync(`ALTER TABLE categories ADD COLUMN color TEXT;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE categories ADD COLUMN monthly_limit REAL DEFAULT 0;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE categories ADD COLUMN is_fixed INTEGER DEFAULT 0;`); } catch (e) {}
+    try { db.execSync(`ALTER TABLE categories ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
     // Seed default categories if empty
     const catCount = db.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM categories`)?.count || 0;
@@ -120,6 +123,7 @@ export const initDatabase = async () => {
     try { db.execSync(`ALTER TABLE goals ADD COLUMN completed INTEGER DEFAULT 0;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE goals ADD COLUMN notes TEXT;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE goals ADD COLUMN sync_status TEXT DEFAULT 'pending';`); } catch (e) {}
+    try { db.execSync(`ALTER TABLE goals ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
     // Accounts Table
     db.execSync(`
@@ -138,6 +142,7 @@ export const initDatabase = async () => {
 
     try { db.execSync(`ALTER TABLE accounts ADD COLUMN target_months INTEGER;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE accounts ADD COLUMN notes TEXT;`); } catch (e) {}
+    try { db.execSync(`ALTER TABLE accounts ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
     // Investments Table
     db.execSync(`
@@ -161,6 +166,8 @@ export const initDatabase = async () => {
         is_deleted INTEGER DEFAULT 0
       );
     `);
+
+    try { db.execSync(`ALTER TABLE investments ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
     // Indexes
     db.execSync(`CREATE INDEX IF NOT EXISTS idx_expense_date ON expenses(date);`);
