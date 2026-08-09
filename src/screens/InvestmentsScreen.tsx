@@ -219,29 +219,29 @@ export const InvestmentsScreen = () => {
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>AMOUNT/MO (₹)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={formatInputMoney(amount)} onChangeText={v => setAmount(parseInputMoney(v))} placeholder="5000" />
+              <TextInput style={styles.input} keyboardType="numeric" value={formatInputMoney(amount)} onChangeText={v => setAmount(parseInputMoney(v))} placeholder="5000" placeholderTextColor="#7E8E88" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>TENURE (MO)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={tenure} onChangeText={setTenure} placeholder="36" />
+              <TextInput style={styles.input} keyboardType="numeric" value={tenure} onChangeText={setTenure} placeholder="36" placeholderTextColor="#7E8E88" />
             </View>
           </View>
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>START DATE</Text>
-              <TextInput style={styles.input} value={startDate} onChangeText={setStartDate} placeholder="DD/MM/YYYY" />
+              <TextInput style={styles.input} value={startDate} onChangeText={setStartDate} placeholder="DD/MM/YYYY" placeholderTextColor="#7E8E88" />
             </View>
           </View>
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>RETURN RATE (%)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={returnRate} onChangeText={setReturnRate} placeholder="12" />
+              <TextInput style={styles.input} keyboardType="numeric" value={returnRate} onChangeText={setReturnRate} placeholder="12" placeholderTextColor="#7E8E88" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>SIP DAY (1-31)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={sipDate} onChangeText={setSipDate} placeholder="1" />
+              <TextInput style={styles.input} keyboardType="numeric" value={sipDate} onChangeText={setSipDate} placeholder="1" placeholderTextColor="#7E8E88" />
             </View>
           </View>
 
@@ -254,11 +254,11 @@ export const InvestmentsScreen = () => {
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>STEP-UP RATE (%)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={stepUpRate} onChangeText={setStepUpRate} placeholder="10" />
+                <TextInput style={styles.input} keyboardType="numeric" value={stepUpRate} onChangeText={setStepUpRate} placeholder="10" placeholderTextColor="#7E8E88" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>FREQUENCY (MO)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={stepUpFreq} onChangeText={setStepUpFreq} placeholder="12" />
+                <TextInput style={styles.input} keyboardType="numeric" value={stepUpFreq} onChangeText={setStepUpFreq} placeholder="12" placeholderTextColor="#7E8E88" />
               </View>
             </View>
           )}

@@ -317,8 +317,8 @@ export const SettingsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>New Category</Text>
-            <TextInput style={styles.modalInput} placeholder="Category Name" value={newCatName} onChangeText={setNewCatName} />
-            <TextInput style={styles.modalInput} placeholder="Monthly Target Amount (₹)" keyboardType="numeric" value={formatInputMoney(newCatAmount)} onChangeText={v => setNewCatAmount(parseInputMoney(v))} />
+            <TextInput style={styles.modalInput} placeholder="Category Name" placeholderTextColor="#7E8E88" value={newCatName} onChangeText={setNewCatName} />
+            <TextInput style={styles.modalInput} placeholder="Monthly Target Amount (₹)" placeholderTextColor="#7E8E88" keyboardType="numeric" value={formatInputMoney(newCatAmount)} onChangeText={v => setNewCatAmount(parseInputMoney(v))} />
             
             <Text style={styles.subLabel}>Icon</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconScroll}>
@@ -354,8 +354,8 @@ export const SettingsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Log Extra Income</Text>
-            <TextInput style={styles.modalInput} placeholder="Source (e.g. Freelance, Bonus)" value={newIncSource} onChangeText={setNewIncSource} />
-            <TextInput style={styles.modalInput} placeholder="Amount" keyboardType="numeric" value={formatInputMoney(newIncAmount)} onChangeText={v => setNewIncAmount(parseInputMoney(v))} />
+            <TextInput style={styles.modalInput} placeholder="Source (e.g. Freelance, Bonus)" placeholderTextColor="#7E8E88" value={newIncSource} onChangeText={setNewIncSource} />
+            <TextInput style={styles.modalInput} placeholder="Amount" placeholderTextColor="#7E8E88" keyboardType="numeric" value={formatInputMoney(newIncAmount)} onChangeText={v => setNewIncAmount(parseInputMoney(v))} />
 
             <View style={[styles.prefRow, { marginTop: 10, borderWidth: 0, paddingHorizontal: 0 }]}>
               <Text style={styles.prefLabel}>Is this a recurring monthly income?</Text>
@@ -374,8 +374,8 @@ export const SettingsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Add Account</Text>
-            <TextInput style={styles.modalInput} placeholder="Account Name (e.g. HDFC Savings)" value={newAccName} onChangeText={setNewAccName} />
-            <TextInput style={styles.modalInput} placeholder="Current Balance (₹)" keyboardType="numeric" value={formatInputMoney(newAccBalance)} onChangeText={v => setNewAccBalance(parseInputMoney(v))} />
+            <TextInput style={styles.modalInput} placeholder="Account Name (e.g. HDFC Savings)" placeholderTextColor="#7E8E88" value={newAccName} onChangeText={setNewAccName} />
+            <TextInput style={styles.modalInput} placeholder="Current Balance (₹)" placeholderTextColor="#7E8E88" keyboardType="numeric" value={formatInputMoney(newAccBalance)} onChangeText={v => setNewAccBalance(parseInputMoney(v))} />
 
             <Text style={styles.subLabel}>Account Type</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>

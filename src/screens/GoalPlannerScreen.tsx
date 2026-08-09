@@ -148,16 +148,16 @@ export const GoalPlannerScreen = () => {
             <Text style={styles.modalTitle}>Create Goal</Text>
             
             <Text style={styles.label}>Goal Title</Text>
-            <TextInput style={styles.input} placeholder="e.g. Buy a Laptop" value={title} onChangeText={setTitle} />
+            <TextInput style={styles.input} placeholder="e.g. Buy a Laptop" placeholderTextColor="#7E8E88" value={title} onChangeText={setTitle} />
             
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Target Amount (₹)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={formatInputMoney(targetAmount)} onChangeText={v => setTargetAmount(parseInputMoney(v))} placeholder="e.g. 50000" />
+                <TextInput style={styles.input} keyboardType="numeric" value={formatInputMoney(targetAmount)} onChangeText={v => setTargetAmount(parseInputMoney(v))} placeholder="e.g. 50000" placeholderTextColor="#7E8E88" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Timeline (Months)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" placeholder="e.g. 12" value={months} onChangeText={setMonths} />
+                <TextInput style={styles.input} keyboardType="numeric" placeholder="e.g. 12" placeholderTextColor="#7E8E88" value={months} onChangeText={setMonths} />
               </View>
             </View>
             

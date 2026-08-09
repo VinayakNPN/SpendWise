@@ -4,7 +4,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppStore } from "../state/AppStore";
-import { useExpensesQuery, useAccountsQuery, useInvestmentsQuery, useGoalsQuery } from "../state/queries";
+import { useExpensesQuery, useAccountsQuery, useInvestmentsQuery, useGoalsQuery, useIncomesQuery } from "../state/queries";
 import { askGroq } from "../services/groq";
 import { budgetSignals, categorySpend, monthlySpend, topThreeCategories, weeklyReport, formatMoney, calculateNetWorth } from "../utils/finance";
 import { calculateInvestmentProjections } from "../utils/investmentCalc";
@@ -18,8 +18,9 @@ export const AIInsightsScreen = () => {
   const { data: accounts = [] } = useAccountsQuery();
   const { data: investments = [] } = useInvestmentsQuery();
   const { data: goals = [] } = useGoalsQuery();
+  const { data: incomes = [] } = useIncomesQuery();
   const projectedInvestments = investments.map(calculateInvestmentProjections);
-  const { netWorth } = calculateNetWorth(accounts, goals, projectedInvestments);
+  const { netWorth } = calculateNetWorth(accounts, goals, projectedInvestments, incomes);
 
   const split = categorySpend(expenses);
   const top = topThreeCategories(expenses);
