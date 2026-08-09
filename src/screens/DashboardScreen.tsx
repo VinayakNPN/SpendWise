@@ -125,31 +125,38 @@ export const DashboardScreen = () => {
       <Text style={styles.categoryTitle}>Categories</Text>
       <FadeInView delay={90}>
         <View style={styles.grid}>
-        {sortedCards.map((c) => (
-          <Pressable key={c.id} style={styles.catCard} onPress={() => navigation.navigate("Expenses", { initialCategory: c.name })}>
-            <View style={[styles.iconWrap, { backgroundColor: c.color + "20" }]}>
-              <MaterialCommunityIcons name={c.icon as any} size={16} color={c.color} />
-            </View>
-            <Text style={styles.catName}>{c.name}</Text>
-            <View style={styles.catRow}>
-              <Text style={styles.catAmount}>{formatMoney(cat[c.name] ?? 0)} / {formatMoney(c.monthly_limit || 0)}</Text>
-              <Text style={[styles.badge, { color: categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).tone }]}>
-                {categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).badge}
-              </Text>
-            </View>
-            <View style={styles.catLimitLine}>
-              <View
-                style={[
-                  styles.catLimitFill,
-                  {
-                    width: `${Math.min(100, Math.round(categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).ratio * 100))}%`,
-                    backgroundColor: categoryStatus(cat[c.name] ?? 0, c.monthly_limit || 0).bar
-                  }
-                ]}
-              />
-            </View>
-          </Pressable>
-        ))}
+        {sortedCards.map((c) => {
+          const spent = cat[c.name] ?? 0;
+          const limit = c.monthly_limit || 0;
+          const left = limit - spent;
+          const status = categoryStatus(spent, limit);
+          
+          return (
+            <Pressable key={c.id} style={styles.catCard} onPress={() => navigation.navigate("Expenses", { initialCategory: c.name })}>
+              <View style={[styles.iconWrap, { backgroundColor: c.color + "20" }]}>
+                <MaterialCommunityIcons name={c.icon as any} size={16} color={c.color} />
+              </View>
+              <Text style={styles.catName}>{c.name}</Text>
+              <View style={styles.catRow}>
+                <Text style={styles.catAmount}>{formatMoney(spent)} / {formatMoney(limit)}</Text>
+                <Text style={[styles.badge, { color: status.tone }]}>
+                  {left >= 0 ? `${formatMoney(left)} left` : `${formatMoney(Math.abs(left))} over`}
+                </Text>
+              </View>
+              <View style={styles.catLimitLine}>
+                <View
+                  style={[
+                    styles.catLimitFill,
+                    {
+                      width: `${Math.min(100, Math.round(status.ratio * 100))}%`,
+                      backgroundColor: status.bar
+                    }
+                  ]}
+                />
+              </View>
+            </Pressable>
+          );
+        })}
         {categories.length === 0 && (
           <Text style={styles.catLimit}>No categories found. Go to Settings to configure your categories.</Text>
         )}
