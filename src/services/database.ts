@@ -9,6 +9,15 @@ export const db = SQLite.openDatabaseSync(DB_NAME);
 
 export const initDatabase = async () => {
   try {
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS schema_versions (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      );
+    `);
+    const appliedVersions = db.getAllSync<{version: number}>(`SELECT version FROM schema_versions`).map(r => r.version);
+
+    if (!appliedVersions.includes(1)) {
     // Expenses Table
     db.execSync(`
       CREATE TABLE IF NOT EXISTS expenses (
@@ -22,7 +31,8 @@ export const initDatabase = async () => {
         updated_at TEXT,
         sync_status TEXT DEFAULT 'pending',
         is_deleted INTEGER DEFAULT 0,
-        is_recurring INTEGER DEFAULT 0
+        is_recurring INTEGER DEFAULT 0,
+        account_id TEXT
       );
     `);
     
@@ -30,6 +40,7 @@ export const initDatabase = async () => {
     try { db.execSync(`ALTER TABLE expenses ADD COLUMN sync_status TEXT DEFAULT 'pending';`); } catch (e) {}
     try { db.execSync(`ALTER TABLE expenses ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
     try { db.execSync(`ALTER TABLE expenses ADD COLUMN updated_at TEXT;`); } catch (e) {}
+    try { db.execSync(`ALTER TABLE expenses ADD COLUMN account_id TEXT;`); } catch (e) {}
 
     // Incomes Table
     db.execSync(`
@@ -137,6 +148,7 @@ export const initDatabase = async () => {
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         balance REAL DEFAULT 0,
+        opening_balance REAL DEFAULT 0,
         target_months INTEGER,
         notes TEXT,
         created_at TEXT NOT NULL,
@@ -180,6 +192,24 @@ export const initDatabase = async () => {
     db.execSync(`CREATE INDEX IF NOT EXISTS idx_expense_date ON expenses(date);`);
     db.execSync(`CREATE INDEX IF NOT EXISTS idx_expense_category ON expenses(category);`);
     db.execSync(`CREATE INDEX IF NOT EXISTS idx_goal_category ON goals(category);`);
+    db.runSync(`INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`, 1, new Date().toISOString());
+    } // End of migration 1
+
+    if (!appliedVersions.includes(2)) {
+      try { db.execSync(`ALTER TABLE expenses ADD COLUMN type TEXT DEFAULT 'EXPENSE';`); } catch (e) {}
+      try { db.execSync(`ALTER TABLE expenses ADD COLUMN from_account_id TEXT;`); } catch (e) {}
+      try { db.execSync(`ALTER TABLE expenses ADD COLUMN to_account_id TEXT;`); } catch (e) {}
+      try { db.execSync(`ALTER TABLE expenses ADD COLUMN status TEXT DEFAULT 'CONFIRMED';`); } catch (e) {}
+      try { db.execSync(`ALTER TABLE expenses ADD COLUMN source TEXT DEFAULT 'MANUAL';`); } catch (e) {}
+      try { db.execSync(`ALTER TABLE expenses ADD COLUMN fingerprint TEXT;`); } catch (e) {}
+      db.runSync(`INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`, 2, new Date().toISOString());
+    }
+
+    if (!appliedVersions.includes(3)) {
+      try { db.execSync(`ALTER TABLE accounts ADD COLUMN opening_balance REAL DEFAULT 0;`); } catch (e) {}
+      try { db.execSync(`UPDATE accounts SET opening_balance = balance;`); } catch (e) {}
+      db.runSync(`INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`, 3, new Date().toISOString());
+    }
 
     autoLogRecurringExpenses();
 
@@ -240,9 +270,10 @@ export const addExpense = (data: Omit<Expense, 'id'>) => {
   const id = uuidv4();
   const now = new Date().toISOString();
   db.runSync(
-    `INSERT INTO expenses (id, name, amount, category, note, date, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-    id, data.name, data.amount, data.category, data.note || null, data.date, now
+    `INSERT INTO expenses (id, name, amount, category, note, date, created_at, sync_status, account_id, type, from_account_id, to_account_id, status, source, fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
+    id, data.name, data.amount, data.category, data.note || null, data.date, now, data.account_id || null, data.type || 'EXPENSE', data.from_account_id || null, data.to_account_id || null, data.status || 'CONFIRMED', data.source || 'MANUAL', data.fingerprint || null
   );
+
   return id;
 };
 
@@ -254,7 +285,14 @@ export const getAllExpenses = (): Expense[] => {
     amount: r.amount,
     category: r.category,
     note: r.note,
-    date: r.date
+    date: r.date,
+    account_id: r.account_id,
+    type: r.type,
+    from_account_id: r.from_account_id,
+    to_account_id: r.to_account_id,
+    status: r.status,
+    source: r.source,
+    fingerprint: r.fingerprint
   }));
 };
 
@@ -269,12 +307,19 @@ export const getExpensesByMonth = (month: string): Expense[] => {
     amount: r.amount,
     category: r.category,
     note: r.note,
-    date: r.date
+    date: r.date,
+    account_id: r.account_id,
+    type: r.type,
+    from_account_id: r.from_account_id,
+    to_account_id: r.to_account_id,
+    status: r.status,
+    source: r.source,
+    fingerprint: r.fingerprint
   }));
 };
 
 export const updateExpense = (id: string, data: Partial<Expense>) => {
-  const allowedKeys = ['name', 'amount', 'category', 'note', 'date'];
+  const allowedKeys = ['name', 'amount', 'category', 'note', 'date', 'account_id', 'type', 'from_account_id', 'to_account_id', 'status', 'source', 'fingerprint'];
   const sets: string[] = [];
   const params: any[] = [];
   
@@ -562,6 +607,7 @@ export const getAccounts = (): Account[] => {
     name: r.name,
     type: r.type,
     balance: r.balance,
+    opening_balance: r.opening_balance,
     target_months: r.target_months,
     notes: r.notes,
     created_at: r.created_at
@@ -572,8 +618,8 @@ export const addAccount = (data: Omit<Account, 'id' | 'created_at'>) => {
   const id = uuidv4();
   const now = new Date().toISOString();
   db.runSync(
-    `INSERT INTO accounts (id, name, type, balance, target_months, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    id, data.name, data.type, data.balance || 0, data.target_months || null, data.notes || null, now
+    `INSERT INTO accounts (id, name, type, balance, opening_balance, target_months, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, data.name, data.type, data.balance || 0, data.opening_balance ?? (data.balance || 0), data.target_months || null, data.notes || null, now
   );
   return id;
 };
@@ -583,6 +629,7 @@ export const updateAccount = (id: string, data: Partial<Account>) => {
     name: 'name',
     type: 'type',
     balance: 'balance',
+    opening_balance: 'opening_balance',
     target_months: 'target_months',
     notes: 'notes'
   };

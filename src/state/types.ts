@@ -8,6 +8,8 @@ export type ExpenseCategory =
   | "Sapna"
   | "Other";
 
+export type TransactionType = 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'REFUND' | 'ADJUSTMENT' | 'INVESTMENT_CONTRIBUTION' | 'INVESTMENT_WITHDRAWAL';
+
 export type Expense = {
   id: string;
   name: string;
@@ -16,6 +18,13 @@ export type Expense = {
   date: string;
   note?: string;
   is_recurring?: boolean;
+  account_id?: string;
+  type?: TransactionType;
+  from_account_id?: string;
+  to_account_id?: string;
+  status?: string;
+  source?: string;
+  fingerprint?: string;
 };
 
 export type Investment = {
@@ -61,13 +70,14 @@ export type Category = {
   is_fixed: boolean;
 };
 
-export type AccountType = 'SAVINGS' | 'EMERGENCY_FUND';
+export type AccountType = 'SAVINGS' | 'EMERGENCY_FUND' | 'BANK' | 'WALLET' | 'UPI_LITE' | 'CASH' | 'INVESTMENT';
 
 export type Account = {
   id: string;
   name: string;
   type: AccountType;
-  balance: number;
+  balance: number; // Will be derived in the UI, but kept for legacy/fallback
+  opening_balance?: number; // New source of truth for the base amount
   target_months?: number; // Only used for EMERGENCY_FUND (e.g. 6 months)
   notes?: string;
   created_at: string;
@@ -103,8 +113,13 @@ export type ChatSession = {
   createdAt: string;
 };
 
+export type ThemeMode = "light" | "dark" | "system";
+
 export type UserPreferences = {
   dailyReminder: boolean;
   currency: "INR";
   compactMode: boolean;
+  themeMode: ThemeMode;
+  isPrivacyEnabled: boolean;
+  biometricLock: boolean;
 };

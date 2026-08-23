@@ -1,0 +1,871 @@
+# Velnora — Full Implementation Roadmap
+
+> **Transform SpendWise from a static expense tracker into a private, local-first personal financial command center.**
+
+This plan is organized into **6 macro-phases** containing **25 sub-phases**, designed for sequential execution. Each phase leaves the app launchable and preserves all existing user data.
+
+> [!IMPORTANT]
+> **Core Rule: No calculation logic will be altered.** All existing functions in [`finance.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/utils/finance.ts) (`budgetSignals`, `categorySpend`, `categoryStatus`, `topThreeCategories`, `currentNoSpendStreak`, `weeklyReport`, `getLast30DaysSpend`, `calculateNetWorth`, `formatMoney`) remain untouched unless explicitly stated.
+
+---
+
+## Codebase Analysis Summary
+
+| Area | Current State | Key Files |
+|------|--------------|-----------|
+| **Theme** | Single hardcoded light theme (14 lines), no dark mode | [`theme.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/utils/theme.ts) |
+| **State** | React Context + AsyncStorage, no theme preference | [`AppStore.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/state/AppStore.tsx), [`types.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/state/types.ts) |
+| **Components** | Only 3 components: `FadeInView`, `GoalPlanner`, `Ui` (dark-themed, unused?) | [`src/components/`](file:///c:/Users/Admin/Documents/SpendWise/src/components) |
+| **Screens** | 6 screens, all with hardcoded colors (~100+ color literals) | [`src/screens/`](file:///c:/Users/Admin/Documents/SpendWise/src/screens) |
+| **Database** | SQLite with `ALTER TABLE ... catch` migrations, 6 tables | [`database.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/services/database.ts) |
+| **Navigation** | Bottom tabs (5 tabs), one nested stack (AI → Goals) | [`App.tsx`](file:///c:/Users/Admin/Documents/SpendWise/App.tsx) |
+| **Animations** | Basic `Animated` API fade-in only | [`FadeInView.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/components/FadeInView.tsx) |
+| **Dependencies** | Reanimated available but unused; date-fns, expo-sqlite, React Query | [`package.json`](file:///c:/Users/Admin/Documents/SpendWise/package.json) |
+
+### Critical Observations
+
+1. **~100+ hardcoded color values** scattered across all 6 screens — every `StyleSheet` uses literal hex values like `#F4F6F5`, `#1F2928`, `#184B43`
+2. **No design token system** — spacing, typography, radii, shadows are all ad-hoc per screen
+3. **`Ui.tsx` uses a dark color scheme** (`#111827`, `#06B6D4`) that conflicts with the light app theme — this component appears orphaned
+4. **`UserPreferences` type** has only `dailyReminder`, `currency`, `compactMode` — no theme support
+5. **`autoLogRecurringExpenses()`** on line 184 of `database.ts` silently creates expense records — flagged for replacement in Phase 10
+6. **`NavigationContainer`** uses `AppTheme` directly — no dynamic theme switching
+7. **`StatusBar style="dark"` is hardcoded** in `App.tsx` line 45
+8. **No privacy/masking system** exists anywhere
+9. **Transaction model is expense-only** — no income/transfer/refund distinction in the expense table
+
+---
+
+## 🔵 MACRO-PHASE A — Foundation & Visual System (Phases 0–2)
+*Goal: Establish baseline, create design system, implement theming*
+
+---
+
+### Phase 0 — Safe Baseline
+
+**Objective**: Create a checkpoint before any changes.
+
+#### Tasks
+- [ ] Verify app boots correctly (`expo start`)
+- [ ] Run TypeScript checks (`npx tsc --noEmit`)
+- [ ] Backup current database state (verify `exportDatabaseToJSON()` works)
+- [ ] Document current screen inventory and note all hardcoded colors
+- [ ] Create git checkpoint: `chore: establish baseline before Velnora refactor`
+
+#### Files Impacted
+None — this phase makes zero code changes.
+
+#### Acceptance Criteria
+- App launches without errors
+- TypeScript passes
+- Backup JSON is valid
+- Git history preserved
+
+---
+
+### Phase 1 — Design System + Theming Engine
+
+**Objective**: Replace all ad-hoc colors/spacing with a token-based design system supporting Light, Dark, and System Default themes.
+
+> [!IMPORTANT]
+> **Dark mode palette**: Spotify-inspired — deep black backgrounds (`#121212`, `#181818`, `#282828`) with vibrant green accents (`#1DB954`). This replaces the current teal `#184B43` only in dark mode.
+
+#### 1.1 — Theme Token File
+
+**[NEW] `src/utils/theme.ts`** (complete rewrite of existing 14-line file)
+
+Create comprehensive semantic color tokens for three modes:
+
+```
+Light Mode:
+  background: #F4F6F5 (existing)
+  surface: #FFFFFF (existing cards)
+  surfaceElevated: #EDF2F0
+  text: #1F2928 (existing)
+  textSecondary: #6F7977
+  textTertiary: #8B9792
+  primary: #184B43 (existing green)
+  primaryMuted: #E6EEEA
+  accent: #2D8A73
+  border: #E2E8E5
+  destructive: #D32F2F
+  success: #2E7D32
+  warning: #F59E0B
+  error: #E05555
+
+Dark Mode (Spotify-inspired):
+  background: #121212
+  surface: #181818
+  surfaceElevated: #282828
+  text: #FFFFFF
+  textSecondary: #B3B3B3
+  textTertiary: #727272
+  primary: #1DB954 (Spotify green)
+  primaryMuted: #1A3A2A
+  accent: #1ED760
+  border: #333333
+  destructive: #FF4444
+  success: #1DB954
+  warning: #FFB800
+  error: #FF6B6B
+```
+
+Also define:
+- **Spacing scale**: `xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32`
+- **Typography scale**: `caption: 11, small: 12, body: 14, bodyLarge: 15, subtitle: 16, title: 18, headline: 22, display: 28`
+- **Border radius**: `sm: 8, md: 12, lg: 16, xl: 20, pill: 999`
+- **Elevation/shadow** tokens (light vs dark)
+
+#### 1.2 — Theme Context + Hook
+
+**[NEW] `src/state/ThemeContext.tsx`**
+
+- `ThemeMode` type: `'light' | 'dark' | 'system'`
+- `ThemeProvider` wraps app, reads system appearance via `useColorScheme()`
+- `useTheme()` hook returns resolved colors + current mode
+- Persists user preference via AsyncStorage (separate key from `spend-wise-store-v1`)
+- `useThemedStyles(createStyles)` helper for screen-level `StyleSheet.create` replacement
+
+#### 1.3 — Update UserPreferences Type
+
+**[MODIFY] [`types.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/state/types.ts)**
+
+Add `themeMode: 'light' | 'dark' | 'system'` to `UserPreferences` with default `'system'`.
+
+#### 1.4 — Update App Entry Point
+
+**[MODIFY] [`App.tsx`](file:///c:/Users/Admin/Documents/SpendWise/App.tsx)**
+
+- Wrap with `ThemeProvider`
+- `NavigationContainer theme` becomes dynamic based on resolved theme
+- `StatusBar style` switches between `'dark'` / `'light'` based on theme
+- Tab bar `tabBarStyle` reads from theme tokens
+- Tab bar `tabBarActiveTintColor` / `tabBarInactiveTintColor` from theme
+
+#### 1.5 — Shared UI Primitives
+
+**[MODIFY] [`src/components/Ui.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/components/Ui.tsx)**
+
+Replace the orphaned dark-themed components with theme-aware primitives:
+- `Card` — uses `surface` + `border` tokens
+- `SectionHeading` — uses typography tokens
+- `Chip` — compact category/filter chip
+- `PrimaryButton` / `SecondaryButton` / `DestructiveButton` — uses theme colors
+- `IconButton` — icon-only touch target (min 44dp)
+- `AmountText` — formatted amount display
+- `EmptyState` — icon + title + subtitle + optional CTA
+- `LoadingButton` — button with inline spinner
+- `InlineError` — field-level error text
+
+#### 1.6 — Migrate All 6 Screens to Theme Tokens
+
+**[MODIFY]** Every screen file:
+
+| Screen | Hardcoded Colors (approx) | Key Changes |
+|--------|--------------------------|-------------|
+| [`DashboardScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/DashboardScreen.tsx) | ~25 colors | All `#F4F6F5`, `#1F2827`, `#FFFFFF`, `#184B43`, etc. → tokens |
+| [`ExpensesScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/ExpensesScreen.tsx) | ~20 colors | Form fields, transaction rows, chips → tokens |
+| [`SettingsScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/SettingsScreen.tsx) | ~25 colors | All modals, inputs, rows, switches → tokens |
+| [`AIInsightsScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/AIInsightsScreen.tsx) | ~20 colors | Chat UI, cards → tokens |
+| [`GoalPlannerScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/GoalPlannerScreen.tsx) | ~15 colors | Goal cards, forms → tokens |
+| [`InvestmentsScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/InvestmentsScreen.tsx) | ~20 colors | Portfolio cards, forms → tokens |
+
+> [!WARNING]
+> This is the largest single change in the entire roadmap. Every `StyleSheet.create()` call across 6 screens needs to be converted to use the `useThemedStyles()` pattern. The screens will be migrated one at a time within this phase.
+
+#### Acceptance Criteria
+- Three theme modes work: Light / Dark / System Default
+- Dark mode has Spotify-style black + green aesthetic
+- Light mode looks identical to current app
+- All financial values display correctly in both themes
+- No hardcoded color literals remain in any screen file
+- Theme persists across app restarts
+
+---
+
+### Phase 2 — Interaction & Keyboard Foundation
+
+**Objective**: Fix the highest-frequency UX friction before redesigning screens.
+
+#### 2.1 — Keyboard Safety
+
+**[NEW] `src/components/KeyboardSafeScreen.tsx`**
+
+Reusable wrapper component:
+- `KeyboardAvoidingView` with platform-specific `behavior` (`padding` on iOS, `height` on Android)
+- Scrollable content area
+- Ensures focused input stays visible above keyboard
+- Bottom tab bar hides when keyboard is open (already set via `tabBarHideOnKeyboard: true` in `App.tsx` line 49 ✓)
+
+**[MODIFY]** [`ExpensesScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/ExpensesScreen.tsx) — Wrap the add expense form with `KeyboardSafeScreen`
+
+**[MODIFY]** [`SettingsScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/SettingsScreen.tsx) — Wrap income/account/category modals with keyboard-safe layout
+
+#### 2.2 — Input Focus Order
+
+**[MODIFY]** [`ExpensesScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/ExpensesScreen.tsx)
+
+- Set `returnKeyType="next"` on Name input → focuses Amount
+- Set `returnKeyType="done"` on Amount input → dismisses keyboard
+- Amount field uses `keyboardType="numeric"`
+- Tap outside fields dismisses keyboard
+
+#### 2.3 — Amount Input Enhancement
+
+- Use numeric keyboard consistently
+- Preserve raw numeric state internally, format display with Indian numbering (already exists in `formatInputMoney`/`parseInputMoney`)
+- Add subtle scale animation on value change using Reanimated (duration ~150ms, ease-out)
+- Respect reduced-motion accessibility settings
+
+#### 2.4 — Touch Feedback
+
+**[NEW] `src/components/PressableScale.tsx`**
+
+- Wraps `Pressable` with subtle scale-down (0.97) on press
+- ~150ms animation duration
+- Min 44dp touch target
+- Replace key `Pressable` uses across screens
+
+#### 2.5 — Empty States
+
+**[NEW]** `EmptyState` component (from Phase 1.5) applied to:
+- Expenses list when no transactions exist
+- Goals screen when no goals exist
+- Investments screen when no investments exist
+- Categories list when empty
+
+#### 2.6 — Loading States
+
+- Skeleton placeholder for initial data load on Dashboard
+- Button-level loading spinners for save actions
+- No full-screen spinners for local SQLite operations
+
+#### Acceptance Criteria
+- Keyboard never hides the active input on any form
+- Amount input animates subtly on value change
+- Tappable elements have press feedback
+- Empty screens show helpful illustrations/text instead of blank space
+- All forms work correctly with keyboard open/closed
+
+---
+
+## 🟢 MACRO-PHASE B — Privacy & Security (Phase 3)
+
+---
+
+### Phase 3 — Global Privacy Mode (Eye Icon)
+
+**Objective**: One-tap to hide all financial amounts across the entire app.
+
+#### 3.1 — Privacy State
+
+**[MODIFY] [`AppStore.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/state/AppStore.tsx)**
+
+Add global state:
+```ts
+privacyMode: boolean  // default: false
+togglePrivacy: () => void
+```
+
+Persist privacy preference in AsyncStorage.
+
+#### 3.2 — Amount Formatting
+
+**[MODIFY] [`finance.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/utils/finance.ts)**
+
+> [!IMPORTANT]
+> We will NOT modify `formatMoney()` itself. Instead, create a NEW wrapper:
+
+```ts
+export const displayMoney = (amount: number, masked: boolean) => {
+  if (masked) return '₹••••';
+  return formatMoney(amount);
+};
+```
+
+This preserves all existing calculation logic while adding display-level masking.
+
+#### 3.3 — Eye Icon in Header
+
+**[MODIFY]** [`DashboardScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/DashboardScreen.tsx)
+
+Add an eye-open / eye-off icon next to the logo in the header area (line 32-38). Tapping toggles `privacyMode`.
+
+#### 3.4 — Mask All Financial Values
+
+Replace `formatMoney(value)` with `displayMoney(value, privacyMode)` in all 6 screens:
+
+- [ ] Dashboard: total spent, avg/day, ideal/day, safe to spend, category amounts, budget values
+- [ ] Expenses: transaction amounts, totals
+- [ ] Settings: income, budget, account balances, category limits
+- [ ] AI Insights: any monetary values in responses
+- [ ] Goals: target amounts, saved amounts
+- [ ] Investments: portfolio values, monthly amounts, projections
+
+#### 3.5 — App Background Protection (Optional)
+
+- Blur/overlay sensitive content when app goes to background (Android recent apps)
+- Restore on foreground
+
+#### Acceptance Criteria
+- Eye icon visible on Dashboard header
+- One tap hides ALL monetary values across ALL screens as `₹••••`
+- Another tap restores all values
+- Privacy preference persists across app restarts
+- Navigating between screens maintains privacy state
+
+---
+
+## 🟡 MACRO-PHASE C — Financial Architecture (Phases 4–9)
+
+*Goal: Transform the data model from expense-only to a proper financial ledger*
+
+> [!CAUTION]
+> This is the most architecturally significant macro-phase. Each sub-phase involves database migrations that must preserve existing user data.
+
+---
+
+### Phase 4 — Financial Domain Model Refactor
+
+**Objective**: Introduce transaction types beyond just "expense".
+
+#### 4.1 — Transaction Types
+
+**[MODIFY] [`types.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/state/types.ts)**
+
+Add `TransactionType`:
+```
+EXPENSE | INCOME | TRANSFER | REFUND | ADJUSTMENT | INVESTMENT_CONTRIBUTION | INVESTMENT_WITHDRAWAL
+```
+
+#### 4.2 — Enhanced Transaction Schema
+
+**[MODIFY] [`database.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/services/database.ts)**
+
+Add columns to expenses table via versioned migration:
+- `type TEXT DEFAULT 'EXPENSE'`
+- `account_id TEXT`
+- `from_account_id TEXT`
+- `to_account_id TEXT`
+- `status TEXT DEFAULT 'CONFIRMED'`
+- `source TEXT DEFAULT 'MANUAL'`
+- `fingerprint TEXT`
+
+#### 4.3 — Migration System
+
+Replace the `ALTER TABLE ... catch` pattern (lines 29-32, 49-52, etc.) with a proper versioned migration system:
+- `schema_version` table tracking applied versions
+- Sequential migration functions: `001_initial`, `002_transaction_types`, etc.
+- Existing expenses migrate as `type = 'EXPENSE'`, `source = 'MANUAL'`
+
+#### Acceptance Criteria
+- Existing expense records are preserved with `type = 'EXPENSE'`
+- New transaction types can be created
+- Migration is idempotent and safe
+- App launches correctly after migration
+
+---
+
+### Phase 5 — Account-Centric Balance Engine
+
+**Objective**: Make account balances derived from transactions rather than manually entered.
+
+#### 5.1 — Account Type Expansion
+
+**[MODIFY] [`types.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/state/types.ts)**
+
+Expand `AccountType`:
+```
+SAVINGS | EMERGENCY_FUND | BANK | WALLET | UPI_LITE | CASH | INVESTMENT
+```
+
+#### 5.2 — Balance Calculation
+
+New utility function that computes account balance from:
+```
+opening_balance + income_in + transfers_in + refunds - expenses_out - transfers_out - investment_contributions
+```
+
+#### 5.3 — Accounts Screen
+
+**[NEW] `src/screens/AccountsScreen.tsx`** or embedded in Settings
+
+Dedicated view showing each account with:
+- Current calculated balance
+- Account type icon
+- Last activity
+- Reconciliation action
+
+#### 5.4 — Account Detail
+
+Detail view per account:
+- Current balance
+- Opening balance
+- Money in / Money out
+- Recent transactions for this account
+
+#### Acceptance Criteria
+- Each account shows a calculated balance
+- Manual balance entry becomes "opening balance"
+- Existing account data is preserved
+
+---
+
+### Phase 6 — Transaction Capture UX
+
+**Objective**: Make manual transaction creation fast.
+
+#### 6.1 — Add Transaction Bottom Sheet / Modal
+
+**[MODIFY] [`ExpensesScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/ExpensesScreen.tsx)**
+
+Replace the permanently-visible add form with a FAB → bottom sheet flow:
+- Amount-first layout
+- Numeric keyboard opens immediately
+- Category horizontal scroll chips
+- Account selector
+- Date/time picker
+- Optional note
+- Save CTA always reachable
+
+#### 6.2 — Smart Defaults
+- Last-used account pre-selected
+- Last-used category pre-selected
+- Current date/time pre-filled
+- Transaction type defaults to EXPENSE
+
+#### 6.3 — Merchant Memory
+
+**[NEW]** `merchant_mappings` table:
+```
+merchant_normalized | categoryId | accountId | confidence | usageCount | lastUsedAt
+```
+
+Auto-suggest category based on merchant name history.
+
+#### 6.4 — Duplicate Detection
+
+Before saving, check for existing transactions with same amount + similar date + similar merchant. Show confirmation if potential duplicate found.
+
+#### Acceptance Criteria
+- Adding a transaction takes <5 seconds
+- Form opens via FAB, doesn't permanently occupy screen
+- Keyboard behavior is correct
+- Smart defaults reduce input effort
+
+---
+
+### Phase 7 — Android Share-to-App Receipt Capture
+
+**Objective**: Capture transactions from shared receipts/screenshots.
+
+#### 7.1 — Share Intent Receiver
+
+**[MODIFY] [`app.json`](file:///c:/Users/Admin/Documents/SpendWise/app.json)**
+
+Configure Expo to handle `text/plain`, `image/*` share intents.
+
+#### 7.2 — Receipt Parser
+
+**[NEW] `src/services/receiptParser.ts`**
+
+Parse common Indian UPI/bank message patterns:
+```
+"Paid ₹340 to Swiggy" → amount: 340, merchant: "Swiggy"
+"INR 340 debited" → amount: 340
+"UPI Ref 1234..." → reference extraction
+```
+
+#### 7.3 — Review Screen
+
+**[NEW] `src/screens/ReviewCaptureScreen.tsx`**
+
+Shows parsed data with editable fields before saving.
+
+#### Acceptance Criteria
+- Sharing text/image to app opens review screen
+- Parser extracts amount and merchant from common formats
+- User confirms before transaction is created
+
+---
+
+### Phase 8 — Financial Inbox
+
+**Objective**: Surface unresolved/pending transactions.
+
+#### 8.1 — Inbox States
+```
+DETECTED | PENDING_REVIEW | CONFIRMED | IGNORED | DUPLICATE
+```
+
+#### 8.2 — Inbox UI on Dashboard
+
+"Needs Review (N)" card on Home → navigates to inbox list with Accept/Edit/Ignore actions per item.
+
+#### Acceptance Criteria
+- Detected transactions appear in inbox
+- User can review and confirm/ignore
+- Confirmed items become real transactions
+
+---
+
+### Phase 9 — Reconciliation & Completeness
+
+**Objective**: Detect missing transactions and verify account balances.
+
+#### 9.1 — Coverage Score
+```
+Transaction coverage: 94%
+29 recorded / 31 detected
+2 need review
+```
+
+#### 9.2 — Balance Drift Detection
+
+Per account: compare app-calculated balance vs user-reported actual balance.
+
+#### 9.3 — Reconciliation Flow
+
+User enters actual bank balance → app shows difference → suggests likely causes → offers adjustment.
+
+#### Acceptance Criteria
+- Coverage score visible on dashboard
+- Balance reconciliation flow works per account
+- Adjustments create proper adjustment transactions
+
+---
+
+## 🟠 MACRO-PHASE D — Screen Redesigns & Features (Phases 10–16)
+
+*Goal: Rebuild each major screen with the new data model and design system*
+
+---
+
+### Phase 10 — Recurring Payments & Upcoming Obligations
+
+**Objective**: Replace `autoLogRecurringExpenses()` with expected payment system.
+
+#### Tasks
+- [ ] Create `recurring_payments` table: name, amount, frequency, due_date, account, category, status
+- [ ] Payment states: `UPCOMING | DUE | PAID | SKIPPED | OVERDUE`
+- [ ] "Mark as Paid" creates real transaction
+- [ ] Remove `autoLogRecurringExpenses()` from [`database.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/services/database.ts) line 184
+- [ ] Add "Upcoming" section to Dashboard
+
+#### Acceptance Criteria
+- Expected payments show as pending, NOT as completed expenses
+- User manually confirms payment
+- Feeds into Safe-to-Spend calculation
+
+---
+
+### Phase 11 — Dashboard Redesign
+
+**Objective**: Rebuild Home around actionable financial state.
+
+#### New Hierarchy
+1. **Safe to Spend** (hero card)
+2. **Accounts** (summary cards)
+3. **Needs Review** (if items exist)
+4. **Upcoming Obligations** (next 3-5 expected payments)
+5. **Month-to-date Spending** (with category breakdown)
+6. **Secondary insights** (no-spend streak, weekly report)
+
+#### Files
+**[MODIFY] [`DashboardScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/DashboardScreen.tsx)**
+
+---
+
+### Phase 12 — Activity Screen Redesign
+
+**Objective**: Transform Expenses into a full Activity screen.
+
+#### New Layout
+```
+Activity
+[ Search transactions... ]
+[All] [Expenses] [Income] [Transfers] [Pending]
+
+Today
+  transaction row
+  transaction row
+
+Yesterday
+  transaction row
+```
+
+#### Key Changes
+- Grouped by date (Today / Yesterday / Earlier)
+- Transaction rows show: merchant, category · account · time, amount, status
+- No permanent trash button — swipe for Edit/Delete
+- Undo after deletion
+
+---
+
+### Phase 13 — Transaction Detail Screen
+
+**[NEW] `src/screens/TransactionDetailScreen.tsx`**
+
+Full detail view with: Amount, Merchant, Category, Account, Date/time, Transaction type, Reference, Source, Receipt, Notes.
+
+Actions: Edit, Duplicate, Delete, Move to another account.
+
+---
+
+### Phase 14 — Goals, Debt & Investments Improvements
+
+- **Goals**: Connect to actual allocations, show linked transactions
+- **Debt**: Track principal, outstanding, interest, payment schedule, estimated payoff
+- **Investments**: Separate current portfolio value from projected future value
+
+> [!NOTE]
+> Calculation logic in [`investmentCalc.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/utils/investmentCalc.ts) will NOT be altered. Only the UI presentation changes.
+
+---
+
+### Phase 15 — Financial Calculation Correctness
+
+- **Net Worth**: Use current values only (not future projections). Currently [`finance.ts`](file:///c:/Users/Admin/Documents/SpendWise/src/utils/finance.ts) line 4-14 `calculateNetWorth` adds `extraIncomesTotal` as an asset — this needs discussion.
+- **Spending**: Exclude transfers and investment movements from totals
+- **Budget**: Distinguish budgeted / spent / committed / remaining
+- **Date handling**: Consistent timezone-aware grouping
+
+> [!WARNING]
+> `calculateNetWorth()` currently adds `extraIncomesTotal` (sum of all incomes) as an asset alongside account balances and investment values. Income events are **not** assets — they are flows that should already be reflected in account balances. This will be corrected in this phase but flagged for your review since it changes existing behavior.
+
+---
+
+### Phase 16 — Settings Redesign
+
+**[MODIFY] [`SettingsScreen.tsx`](file:///c:/Users/Admin/Documents/SpendWise/src/screens/SettingsScreen.tsx)**
+
+Split the current long scroll into grouped sections:
+
+```
+Money
+  Accounts, Categories, Budget
+
+Planning
+  Goals, Debt, Recurring Payments, Investments
+
+Appearance
+  Theme (Light / Dark / System Default)
+  Compact Mode
+
+Security
+  Privacy Mode, App Lock, Biometrics
+
+Data
+  Backup, Restore, Export, Import
+
+Notifications
+  Reminders, Upcoming Payments
+
+AI & Privacy
+  AI Mode, Cloud Processing, Local-only
+```
+
+Add **Theme Selector** with live preview:
+- Three options: Light ☀️ / Dark 🌙 / System 🔄
+- Tapping immediately applies the theme
+- Current selection highlighted
+
+---
+
+## 🔴 MACRO-PHASE E — Infrastructure & Quality (Phases 17–20)
+
+---
+
+### Phase 17 — Backup, Restore & Security
+
+- Versioned backup format with `schemaVersion`, `appVersion`, all tables
+- Restore with validation + confirmation
+- Consider encrypted backup (AES-GCM)
+- Review Android backup behavior for financial data
+
+---
+
+### Phase 18 — AI Architecture Refactor
+
+- Remove client-side Groq API key exposure (`EXPO_PUBLIC_*` → gateway or local)
+- Create deterministic finance tool functions that AI calls
+- Privacy boundary: default local, optional cloud with indicator
+- Don't label deterministic math as "AI"
+
+---
+
+### Phase 19 — Accessibility & Micro-UX
+
+- Contrast audit for both Light and Dark themes
+- Text scaling support
+- Accessible labels on all icon buttons
+- 44-48dp minimum touch targets
+- Reduced-motion support
+- Screen reader ordering
+
+---
+
+### Phase 20 — Performance
+
+- Virtualize large transaction lists (`FlatList` with `getItemLayout`)
+- Add database indexes for account/date/category/status
+- Memoize expensive selectors
+- Isolate amount input from dashboard re-renders
+- Benchmark with 1K, 10K, 50K transactions
+
+---
+
+## 🟣 MACRO-PHASE F — Polish & Release (Phases 21–25)
+
+---
+
+### Phase 21 — Branding: Velnora
+
+- Rename throughout: `app.json` name, slug, package identifier
+- Update splash screen and app icon
+- Logo: geometric symbol (financial flow + control), dark/green/white palette
+- Works at 24×24 through 1024×1024
+
+---
+
+### Phase 22 — App Configuration Hardening
+
+- Expo app name → "Velnora"
+- Slug → `velnora`
+- Package identifier audit
+- App icon, splash screen, theme config
+- Status bar, keyboard config
+- Android backup behavior, notification permissions
+- EAS project metadata
+
+---
+
+### Phase 23 — Testing Strategy
+
+**Unit Tests**: money parsing/formatting, budget calculations, net worth, account balances, transfer behavior, duplicate fingerprinting, date grouping
+
+**Database Tests**: empty DB, legacy DB, partial DB, large DB, invalid backup
+
+**Component Tests**: amount input, category selector, privacy toggle, bottom sheet
+
+**E2E Scenarios**: Manual transaction, Share receipt, Privacy toggle, Reconciliation
+
+---
+
+### Phase 24 — Visual QA
+
+Full checklist across both Light and Dark themes:
+- No clipped content, correct safe areas
+- Masked values align identically to unmasked
+- Keyboard never hides input
+- Long text truncation works
+- All forms accessible
+
+---
+
+### Phase 25 — Release Hardening
+
+- Production build with no secrets in bundle
+- Database migration tested from legacy state
+- Backup/restore verified
+- Privacy mode verified end-to-end
+- No sensitive logs in production
+- No API keys committed
+- Performance checked with large datasets
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **Q1**: The current `calculateNetWorth()` function adds `extraIncomesTotal` as an asset. Income is a flow, not an asset — it should be reflected in account balances. Should I correct this in Phase 15, or do you want to keep the current behavior?
+
+> [!IMPORTANT]
+> **Q2**: For the Velnora dark theme, the plan specifies Spotify-style black (#121212) + green (#1DB954). The current light theme primary is teal (#184B43). Should the light theme primary also shift to match Velnora branding, or keep the existing teal?
+
+> [!IMPORTANT]
+> **Q3**: The plan mentions biometric lock (Phase 3.7). Should we implement a basic biometric lock in Phase 3, or defer it to Phase 17 (Security)?
+
+> [!IMPORTANT]
+> **Q4**: Should the AI Coach tab be renamed (e.g., "Insights" or "Advisor") as part of the Velnora rebrand?
+
+---
+
+## Execution Rules
+
+1. **One phase at a time** — never combine multiple phases
+2. **Preserve working behavior** — app must launch after every phase
+3. **Never silently modify user data** — no automatic deletions or transaction fabrication
+4. **Test before moving** — typecheck → lint → manual verify → commit per phase
+5. **Focused commits**: `feat(theme): add dark mode with Spotify palette`, `feat(privacy): add global amount masking`
+6. **Do not rewrite everything** — reuse stable components, refactor only when architecture prevents correctness
+7. **Do not add dependencies unnecessarily** — prefer existing React Native, Expo, Reanimated, SQLite, React Navigation, React Query
+
+---
+
+## Recommended Execution Order
+
+```mermaid
+graph TD
+    A["Phase 0: Baseline"] --> B["Phase 1: Design System + Theming"]
+    B --> C["Phase 2: Keyboard + Interactions"]
+    C --> D["Phase 3: Privacy Mode"]
+    D --> E["Phase 4: Transaction Types"]
+    E --> F["Phase 5: Account Balances"]
+    F --> G["Phase 6: Transaction Capture UX"]
+    G --> H["Phase 7: Receipt Capture"]
+    H --> I["Phase 8: Financial Inbox"]
+    I --> J["Phase 9: Reconciliation"]
+    J --> K["Phase 10: Recurring Payments"]
+    K --> L["Phase 11: Dashboard Redesign"]
+    L --> M["Phase 12: Activity Redesign"]
+    M --> N["Phase 13: Transaction Detail"]
+    N --> O["Phase 14: Goals/Debt/Investments"]
+    O --> P["Phase 15: Calculation Fixes"]
+    P --> Q["Phase 16: Settings Redesign"]
+    Q --> R["Phase 17: Backup/Security"]
+    R --> S["Phase 18: AI Refactor"]
+    S --> T["Phase 19: Accessibility"]
+    T --> U["Phase 20: Performance"]
+    U --> V["Phase 21: Velnora Branding"]
+    V --> W["Phase 22: Config Hardening"]
+    W --> X["Phase 23: Testing"]
+    X --> Y["Phase 24: Visual QA"]
+    Y --> Z["Phase 25: Release"]
+
+    style A fill:#4a9eff
+    style B fill:#4a9eff
+    style C fill:#4a9eff
+    style D fill:#2ecc71
+    style E fill:#f1c40f
+    style F fill:#f1c40f
+    style G fill:#f1c40f
+    style H fill:#f1c40f
+    style I fill:#f1c40f
+    style J fill:#f1c40f
+    style K fill:#e67e22
+    style L fill:#e67e22
+    style M fill:#e67e22
+    style N fill:#e67e22
+    style O fill:#e67e22
+    style P fill:#e67e22
+    style Q fill:#e67e22
+    style R fill:#e74c3c
+    style S fill:#e74c3c
+    style T fill:#e74c3c
+    style U fill:#e74c3c
+    style V fill:#9b59b6
+    style W fill:#9b59b6
+    style X fill:#9b59b6
+    style Y fill:#9b59b6
+    style Z fill:#9b59b6
+```
+
+| Color | Macro-Phase | Phases |
+|-------|-------------|--------|
+| 🔵 Blue | A — Foundation & Visual | 0, 1, 2 |
+| 🟢 Green | B — Privacy & Security | 3 |
+| 🟡 Yellow | C — Financial Architecture | 4, 5, 6, 7, 8, 9 |
+| 🟠 Orange | D — Screen Redesigns | 10, 11, 12, 13, 14, 15, 16 |
+| 🔴 Red | E — Infrastructure & Quality | 17, 18, 19, 20 |
+| 🟣 Purple | F — Polish & Release | 21, 22, 23, 24, 25 |

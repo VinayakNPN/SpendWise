@@ -32,7 +32,10 @@ const defaultBudget: BudgetState = {
 const defaultPreferences: UserPreferences = {
   dailyReminder: true,
   currency: "INR",
-  compactMode: false
+  compactMode: false,
+  themeMode: "system",
+  isPrivacyEnabled: false,
+  biometricLock: false,
 };
 const KEY = "spend-wise-store-v1";
 

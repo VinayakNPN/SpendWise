@@ -4,10 +4,78 @@ import { Feather } from "@expo/vector-icons";
 import { format, parse } from "date-fns";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useAppStore } from "../state/AppStore";
-import { useExpensesQuery, useInvestmentsQuery, useAddInvestmentMutation, useDeleteInvestmentMutation, useAccountsQuery, useGoalsQuery, useIncomesQuery } from "../state/queries";
+import { useInvestmentsQuery, useAddInvestmentMutation, useDeleteInvestmentMutation, useAccountsQuery, useGoalsQuery, useIncomesQuery, useExpensesQuery } from "../state/queries";
 import { calculateInvestmentProjections, getInvestableSurplus } from "../utils/investmentCalc";
-import { calculateNetWorth, formatMoney, formatInputMoney, parseInputMoney } from "../utils/finance";
+import { calculateNetWorth, formatInputMoney, parseInputMoney } from "../utils/finance";
+import { useFinance } from "../utils/useFinance";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PressableScale } from "../components/PressableScale";
+import { useTheme } from "../state/ThemeContext";
+import type { ThemeColors } from "../utils/theme";
+import { Spacing, FontSize, Radius } from "../utils/theme";
+
+const createStyles = (c: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    content: { padding: Spacing.lg + 2, paddingBottom: 34 },
+    nwCard: { backgroundColor: isDark ? c.surfaceElevated : c.primary, borderRadius: Radius.xl, padding: Spacing.xl, marginBottom: Spacing.xl },
+    nwTitle: { color: isDark ? c.textTertiary : "#8BB2A9", fontSize: FontSize.small, fontWeight: "700", letterSpacing: 1.5, marginBottom: 4 },
+    nwAmount: { color: isDark ? c.primary : "#FFFFFF", fontSize: 38, fontWeight: "800", marginBottom: Spacing.lg },
+    nwRow: { flexDirection: "row", backgroundColor: isDark ? c.surface : "#215A52", borderRadius: Radius.md + 2, padding: Spacing.md },
+    nwCol: { flex: 1, paddingHorizontal: Spacing.sm },
+    nwDivider: { width: 1, backgroundColor: isDark ? c.border : "#3B736A", marginVertical: 4 },
+    nwSub: { color: isDark ? c.textTertiary : "#8BB2A9", fontSize: 10, fontWeight: "700", letterSpacing: 1 },
+    nwSubVal: { color: isDark ? c.text : "#FFFFFF", fontSize: FontSize.bodyLarge, fontWeight: "700", marginTop: 2 },
+    nwMeta: { fontSize: FontSize.caption, color: isDark ? c.textTertiary : "#A0B2AC" },
+    section: { color: c.textTertiary, fontSize: FontSize.small + 1, letterSpacing: 1.3, fontWeight: "700", marginTop: 10 },
+    titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md + 2 },
+    title: { color: c.text, fontSize: 20.5, fontWeight: "800" },
+    addBtn: { backgroundColor: c.primary, borderRadius: Radius.lg + 2, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+    addText: { color: c.primaryText, fontWeight: "700" },
+    insightsCard: { backgroundColor: c.forecastBackground, borderRadius: Radius.lg, padding: Spacing.lg, marginBottom: Spacing.lg, borderWidth: 1, borderColor: c.cardBorder },
+    insightsTitle: { fontSize: FontSize.bodyLarge, fontWeight: "700", color: c.forecastTitle, marginBottom: 6 },
+    insightText: { fontSize: FontSize.small + 1, color: c.forecastBody, marginBottom: 4, lineHeight: 18 },
+    summaryCard: { backgroundColor: c.cardBackground, borderRadius: Radius.xl, borderWidth: 1, borderColor: c.cardBorder, padding: Spacing.xl, marginBottom: Spacing.lg },
+    summaryHead: { color: c.textTertiary, fontWeight: "700", letterSpacing: 1.2, fontSize: FontSize.small },
+    summaryAmount: { color: c.text, fontSize: 32, fontWeight: "800", marginVertical: Spacing.sm },
+    summaryRow: { flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.sm },
+    summarySubLabel: { color: c.textTertiary, fontSize: FontSize.small, fontWeight: "600", marginBottom: 2 },
+    summarySubValue: { color: c.text, fontSize: FontSize.bodyLarge, fontWeight: "700" },
+    commitmentRow: { marginTop: Spacing.lg, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: c.divider },
+    commitmentText: { color: c.textSecondary, fontSize: FontSize.small + 1, fontWeight: "600" },
+    formCard: { backgroundColor: c.cardBackground, borderRadius: Radius.lg + 2, borderWidth: 1, borderColor: c.cardBorder, padding: Spacing.lg, marginBottom: Spacing.md + 2 },
+    formTitle: { color: c.text, fontSize: FontSize.title, fontWeight: "700", marginBottom: Spacing.md + 2 },
+    label: { color: c.textTertiary, fontSize: FontSize.caption, fontWeight: "700", letterSpacing: 0.8, marginBottom: 6 },
+    input: { backgroundColor: c.inputBackground, color: c.inputText, borderRadius: Radius.md, paddingHorizontal: Spacing.md + 2, paddingVertical: Spacing.md, marginBottom: Spacing.md, fontWeight: "500" },
+    notes: { minHeight: 76, textAlignVertical: "top" },
+    switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md, marginTop: 4 },
+    switchLabel: { color: c.text, fontWeight: "600", fontSize: FontSize.body },
+    typeChip: { borderRadius: Radius.lg + 2, borderWidth: 1, borderColor: c.chipBorder, paddingHorizontal: Spacing.md + 2, paddingVertical: Spacing.sm, marginRight: Spacing.sm, backgroundColor: c.chipBackground },
+    typeChipActive: { backgroundColor: c.chipActiveBackground, borderColor: c.chipActiveBorder },
+    typeText: { color: c.chipText, fontWeight: "600", fontSize: FontSize.small + 1 },
+    typeTextActive: { color: c.chipActiveText },
+    saveBtn: { backgroundColor: c.primary, borderRadius: Radius.md, alignItems: "center", paddingVertical: Spacing.md + 2, marginTop: 10 },
+    saveText: { color: c.primaryText, fontWeight: "700", fontSize: FontSize.bodyLarge },
+    allTitle: { color: c.text, fontSize: FontSize.title, fontWeight: "700", marginBottom: Spacing.md, marginTop: 4 },
+    listCard: { backgroundColor: c.cardBackground, borderWidth: 1, borderColor: c.cardBorder, borderRadius: Radius.lg + 2, padding: Spacing.md + 2 },
+    row: { borderBottomColor: c.borderLight, borderBottomWidth: 1, paddingVertical: Spacing.md, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    name: { color: c.text, fontWeight: "700", fontSize: FontSize.bodyLarge },
+    metaSub: { color: c.textTertiary, fontSize: FontSize.small, marginTop: 3 },
+    meta: { color: c.text, fontWeight: "700", fontSize: FontSize.bodyLarge },
+    modalOverlay: { flex: 1, backgroundColor: c.modalOverlay, justifyContent: "flex-end" },
+    modalCard: { backgroundColor: c.modalBackground, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: Spacing.xxl },
+    modalHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xl },
+    modalMetrics: { flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.xl, backgroundColor: c.surfaceElevated, padding: Spacing.md + 2, borderRadius: Radius.md, borderWidth: 1, borderColor: c.cardBorder },
+    modalMetricBox: { alignItems: "center" },
+    metricLabel: { color: c.textTertiary, fontSize: FontSize.caption, fontWeight: "700", marginBottom: 4 },
+    metricValue: { color: c.text, fontSize: FontSize.bodyLarge, fontWeight: "800" },
+    modalDetails: { gap: Spacing.sm },
+    detailRow: { fontSize: FontSize.body, color: c.text },
+    detailLabel: { fontWeight: "600", color: c.textSecondary },
+    insightTextModal: { marginTop: Spacing.xxl, fontSize: FontSize.small + 1, color: c.forecastTitle, backgroundColor: c.forecastBackground, padding: Spacing.md, borderRadius: 10, lineHeight: 18 },
+    deleteBtn: { backgroundColor: c.destructiveMuted, paddingVertical: Spacing.md + 2, borderRadius: Radius.md, alignItems: "center", marginTop: Spacing.xxl, borderWidth: 1, borderColor: isDark ? c.destructive + "40" : "#F5C6C6" },
+    deleteText: { color: c.destructive, fontWeight: "700", fontSize: FontSize.bodyLarge },
+  });
 
 export const InvestmentsScreen = () => {
   const insets = useSafeAreaInsets();
@@ -19,7 +87,11 @@ export const InvestmentsScreen = () => {
   const { data: accounts = [] } = useAccountsQuery();
   const { data: goals = [] } = useGoalsQuery();
   const { data: incomes = [] } = useIncomesQuery();
-  
+  const { colors, isDark } = useTheme();
+  const { formatMoney } = useFinance();
+
+  const styles = React.useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const { mutate: addInvestmentMut } = useAddInvestmentMutation();
   const { mutate: deleteInvestmentMut } = useDeleteInvestmentMutation();
 
@@ -35,11 +107,9 @@ export const InvestmentsScreen = () => {
   const [sipDate, setSipDate] = useState("1");
   const [startDate, setStartDate] = useState(format(new Date(), "dd/MM/yyyy"));
   const [notes, setNotes] = useState("");
-
   const [stepUpEnabled, setStepUpEnabled] = useState(false);
   const [stepUpRate, setStepUpRate] = useState("10");
   const [stepUpFreq, setStepUpFreq] = useState("12");
-
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   React.useEffect(() => {
@@ -53,7 +123,6 @@ export const InvestmentsScreen = () => {
   }, [route.params?.prefillGoal, navigation]);
 
   const surplus = getInvestableSurplus(budget, expenses);
-
   const types = ["SIP", "Mutual Fund", "Stocks", "FD", "RD", "Gold ETF", "Liquid Fund", "Index Fund", "ETF"];
 
   const projectedInvestments = useMemo(() => {
@@ -61,7 +130,6 @@ export const InvestmentsScreen = () => {
   }, [investments]);
 
   const selected = projectedInvestments.find((inv) => inv.id === selectedId);
-
   const totalCommittedMonthly = projectedInvestments.reduce((acc, inv) => acc + inv.monthly_amount, 0);
   const totalCurrentInvested = projectedInvestments.reduce((acc, inv) => acc + inv.currentInvested, 0);
   const totalCurrentFv = projectedInvestments.reduce((acc, inv) => acc + inv.currentFv, 0);
@@ -69,7 +137,8 @@ export const InvestmentsScreen = () => {
   const totalProjectedFv = projectedInvestments.reduce((acc, inv) => acc + inv.projectedFv, 0);
   const totalProjectedReturns = totalProjectedFv - totalProjectedInvested;
 
-  const { netWorth, assets, liabilities, accountsTotal, investmentsTotal, extraIncomesTotal } = calculateNetWorth(accounts, goals, projectedInvestments, incomes);
+  const { netWorth, assets, liabilities, accountsTotal, investmentsTotal, extraIncomesTotal } = calculateNetWorth(accounts, goals, projectedInvestments, incomes, expenses);
+  const bestPerforming = projectedInvestments.reduce((best, curr) => curr.projectedReturns > (best?.projectedReturns || 0) ? curr : best, projectedInvestments[0]);
 
   const handleSave = () => {
     if (!name || !amount || !tenure || !sipDate || !returnRate) {
@@ -77,367 +146,189 @@ export const InvestmentsScreen = () => {
       return;
     }
     const day = Number(sipDate);
-    if (day < 1 || day > 31) {
-      Alert.alert("Invalid Input", "SIP Day must be between 1 and 31.");
-      return;
-    }
+    if (day < 1 || day > 31) { Alert.alert("Invalid Input", "SIP Day must be between 1 and 31."); return; }
     const rate = Number(returnRate);
-    if (rate < 0 || rate > 25) {
-      Alert.alert("Invalid Input", "Expected return must be between 0% and 25%.");
-      return;
-    }
-    if (stepUpEnabled) {
-      if (Number(stepUpFreq) < 1) {
-        Alert.alert("Invalid Input", "Step-up frequency must be at least 1 month.");
-        return;
-      }
-    }
+    if (rate < 0 || rate > 25) { Alert.alert("Invalid Input", "Expected return must be between 0% and 25%."); return; }
+    if (stepUpEnabled && Number(stepUpFreq) < 1) { Alert.alert("Invalid Input", "Step-up frequency must be at least 1 month."); return; }
     const parsedDate = parse(startDate, "dd/MM/yyyy", new Date());
-    if (isNaN(parsedDate.getTime())) {
-      Alert.alert("Invalid Input", "Start Date must be valid (DD/MM/YYYY).");
-      return;
-    }
+    if (isNaN(parsedDate.getTime())) { Alert.alert("Invalid Input", "Start Date must be valid (DD/MM/YYYY)."); return; }
 
     addInvestment({
-      name,
-      type,
-      monthly_amount: Number(amount),
-      startDate: parsedDate.toISOString(),
-      tenureMonths: Number(tenure),
-      expected_annual_return: rate,
-      compounding_frequency: "monthly",
-      step_up_enabled: stepUpEnabled,
-      step_up_rate: Number(stepUpRate) || 0,
-      step_up_frequency: Number(stepUpFreq) || 12,
-      sip_day: day,
-      notes
+      name, type, monthly_amount: Number(amount), startDate: parsedDate.toISOString(), tenureMonths: Number(tenure),
+      expected_annual_return: rate, compounding_frequency: "monthly", step_up_enabled: stepUpEnabled,
+      step_up_rate: Number(stepUpRate) || 0, step_up_frequency: Number(stepUpFreq) || 12, sip_day: day, notes,
     });
     setName(""); setAmount(""); setTenure(""); setSipDate("1"); setReturnRate("12");
     setStartDate(format(new Date(), "dd/MM/yyyy")); setNotes(""); setStepUpEnabled(false); setStepUpRate("10"); setStepUpFreq("12");
     setShowForm(false);
   };
 
-  const bestPerforming = projectedInvestments.reduce((best, curr) => curr.projectedReturns > (best?.projectedReturns || 0) ? curr : best, projectedInvestments[0]);
-
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
-      style={{ flex: 1 }}
-    >
-      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 40) }]}>
-        
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} style={{ flex: 1 }}>
+      <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 40) }]} keyboardShouldPersistTaps="handled">
+
         <View style={styles.nwCard}>
           <Text style={styles.nwTitle}>NET WORTH</Text>
           <Text style={styles.nwAmount}>{formatMoney(netWorth)}</Text>
           <View style={styles.nwRow}>
-            <View style={styles.nwCol}>
-              <Text style={styles.nwSub}>ASSETS</Text>
-              <Text style={styles.nwSubVal}>{formatMoney(assets)}</Text>
-            </View>
+            <View style={styles.nwCol}><Text style={styles.nwSub}>ASSETS</Text><Text style={styles.nwSubVal}>{formatMoney(assets)}</Text></View>
             <View style={styles.nwDivider} />
-            <View style={styles.nwCol}>
-              <Text style={styles.nwSub}>LIABILITIES</Text>
-              <Text style={styles.nwSubVal}>{formatMoney(liabilities)}</Text>
-            </View>
+            <View style={styles.nwCol}><Text style={styles.nwSub}>LIABILITIES</Text><Text style={styles.nwSubVal}>{formatMoney(liabilities)}</Text></View>
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Accounts: {formatMoney(accountsTotal)}</Text>
-             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Investments (FV): {formatMoney(investmentsTotal)}</Text>
-             <Text style={{ fontSize: 11, color: '#A0B2AC' }}>Extra Income: {formatMoney(extraIncomesTotal)}</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
+            <Text style={styles.nwMeta}>Accounts: {formatMoney(accountsTotal)}</Text>
+            <Text style={styles.nwMeta}>Investments (FV): {formatMoney(investmentsTotal)}</Text>
+            <Text style={styles.nwMeta}>Extra Income: {formatMoney(extraIncomesTotal)}</Text>
           </View>
         </View>
 
         <Text style={styles.section}>PORTFOLIO</Text>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Investment Planner</Text>
-        <Pressable style={styles.addBtn} onPress={() => setShowForm((v) => !v)}>
-          <Text style={styles.addText}>{showForm ? "Cancel" : "+ Add"}</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.insightsCard}>
-        <Text style={styles.insightsTitle}>💡 Smart Insights</Text>
-        {surplus > 0 ? (
-          <Text style={styles.insightText}>• You have an investable surplus of <Text style={{fontWeight:'700'}}>{formatMoney(surplus)}</Text>/month based on income and expenses.</Text>
-        ) : (
-          <Text style={styles.insightText}>• Consider optimizing your expenses to free up investable surplus. Try adding a Monthly Income in Settings if you haven't.</Text>
-        )}
-        {projectedInvestments.length > 0 && (
-          <Text style={styles.insightText}>• Your portfolio is projected to grow to <Text style={{fontWeight:'700'}}>{formatMoney(totalProjectedFv)}</Text>, generating {formatMoney(totalProjectedReturns)} in total returns.</Text>
-        )}
-        {bestPerforming && bestPerforming.projectedReturns > 0 && (
-          <Text style={styles.insightText}>• Top performer: <Text style={{fontWeight:'700'}}>{bestPerforming.name}</Text> is expected to yield {formatMoney(bestPerforming.projectedReturns)} in returns.</Text>
-        )}
-        {surplus > totalCommittedMonthly && totalCommittedMonthly > 0 && (
-          <Text style={styles.insightText}>• You have room to grow! Safely invest up to {formatMoney(surplus - totalCommittedMonthly)} more per month without exceeding your surplus.</Text>
-        )}
-      </View>
-
-      <View style={styles.summaryCard}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View>
-            <Text style={styles.summaryHead}>CURRENT INVESTED</Text>
-            <Text style={styles.summaryAmount}>{formatMoney(totalCurrentInvested)}</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.summaryHead}>PROJECTED VALUE</Text>
-            <Text style={styles.summaryAmount}>{formatMoney(totalProjectedFv)}</Text>
-          </View>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Investment Planner</Text>
+          <PressableScale style={styles.addBtn} onPress={() => setShowForm((v) => !v)}>
+            <Text style={styles.addText}>{showForm ? "Cancel" : "+ Add"}</Text>
+          </PressableScale>
         </View>
-        <View style={styles.summaryRow}>
-          <View>
-            <Text style={styles.summarySubLabel}>Proj. Invested</Text>
-            <Text style={styles.summarySubValue}>{formatMoney(totalProjectedInvested)}</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.summarySubLabel}>Total Returns</Text>
-            <Text style={[styles.summarySubValue, { color: "#2D8A73" }]}>+{formatMoney(totalProjectedReturns)}</Text>
-          </View>
-        </View>
-        <View style={[styles.commitmentRow, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-            <Text style={styles.commitmentText}>Commitment: {formatMoney(totalCommittedMonthly)}/mo</Text>
-            <Text style={[styles.commitmentText, { color: "#2D8A73" }]}>Current Value: {formatMoney(totalCurrentFv)}</Text>
-        </View>
-      </View>
 
-      {showForm && (
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>New Investment</Text>
-          <Text style={styles.label}>NAME</Text>
-          <TextInput style={styles.input} placeholder="e.g. Nifty 50 SIP" placeholderTextColor="#9AA4A0" value={name} onChangeText={setName} />
-          
-          <Text style={styles.label}>TYPE</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-            {types.map((t) => (
-              <Pressable key={t} style={[styles.typeChip, type === t && styles.typeChipActive]} onPress={() => setType(t)}>
-                <Text style={[styles.typeText, type === t && styles.typeTextActive]}>{t}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>AMOUNT/MO (₹)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={formatInputMoney(amount)} onChangeText={v => setAmount(parseInputMoney(v))} placeholder="5000" placeholderTextColor="#7E8E88" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>TENURE (MO)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={tenure} onChangeText={setTenure} placeholder="36" placeholderTextColor="#7E8E88" />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>START DATE</Text>
-              <TextInput style={styles.input} value={startDate} onChangeText={setStartDate} placeholder="DD/MM/YYYY" placeholderTextColor="#7E8E88" />
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>RETURN RATE (%)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={returnRate} onChangeText={setReturnRate} placeholder="12" placeholderTextColor="#7E8E88" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>SIP DAY (1-31)</Text>
-              <TextInput style={styles.input} keyboardType="numeric" value={sipDate} onChangeText={setSipDate} placeholder="1" placeholderTextColor="#7E8E88" />
-            </View>
-          </View>
-
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Enable Step-Up SIP</Text>
-            <Switch value={stepUpEnabled} onValueChange={setStepUpEnabled} trackColor={{ true: '#184B43', false: '#DCE3DF' }} />
-          </View>
-          
-          {stepUpEnabled && (
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>STEP-UP RATE (%)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={stepUpRate} onChangeText={setStepUpRate} placeholder="10" placeholderTextColor="#7E8E88" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>FREQUENCY (MO)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={stepUpFreq} onChangeText={setStepUpFreq} placeholder="12" placeholderTextColor="#7E8E88" />
-              </View>
-            </View>
+        <View style={styles.insightsCard}>
+          <Text style={styles.insightsTitle}>💡 Smart Insights</Text>
+          {surplus > 0 ? (
+            <Text style={styles.insightText}>• You have an investable surplus of <Text style={{ fontWeight: "700" }}>{formatMoney(surplus)}</Text>/month based on income and expenses.</Text>
+          ) : (
+            <Text style={styles.insightText}>• Consider optimizing your expenses to free up investable surplus. Try adding a Monthly Income in Settings if you haven't.</Text>
           )}
-
-          <Text style={styles.label}>NOTES (OPTIONAL)</Text>
-          <TextInput style={[styles.input, styles.notes]} value={notes} onChangeText={setNotes} multiline />
-          
-          <Pressable style={styles.saveBtn} onPress={handleSave}>
-            <Text style={styles.saveText}>Save Investment</Text>
-          </Pressable>
+          {projectedInvestments.length > 0 && (
+            <Text style={styles.insightText}>• Your portfolio is projected to grow to <Text style={{ fontWeight: "700" }}>{formatMoney(totalProjectedFv)}</Text>, generating {formatMoney(totalProjectedReturns)} in total returns.</Text>
+          )}
+          {bestPerforming && bestPerforming.projectedReturns > 0 && (
+            <Text style={styles.insightText}>• Top performer: <Text style={{ fontWeight: "700" }}>{bestPerforming.name}</Text> is expected to yield {formatMoney(bestPerforming.projectedReturns)} in returns.</Text>
+          )}
+          {surplus > totalCommittedMonthly && totalCommittedMonthly > 0 && (
+            <Text style={styles.insightText}>• You have room to grow! Safely invest up to {formatMoney(surplus - totalCommittedMonthly)} more per month without exceeding your surplus.</Text>
+          )}
         </View>
-      )}
 
-      <Text style={styles.allTitle}>All Investments</Text>
-      <View style={styles.listCard}>
-        {projectedInvestments.length === 0 ? (
-          <Text style={styles.meta}>No investments yet{"\n"}Tap Add to create your first projection.</Text>
-        ) : (
-          projectedInvestments.map((inv) => (
-            <Pressable key={inv.id} style={styles.row} onPress={() => setSelectedId(inv.id)}>
-              <View>
-                <Text style={styles.name}>{inv.name}</Text>
-                <Text style={styles.metaSub}>{inv.type} · Day {inv.sip_day} {inv.step_up_enabled && '· Step-Up'}</Text>
-                <Text style={[styles.metaSub, { fontWeight: '600', color: '#2D8A73', marginTop: 4 }]}>({formatMoney(inv.monthly_amount)})</Text>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.meta}>{formatMoney(inv.projectedFv)}</Text>
-                <Text style={styles.metaSub}>{inv.expected_annual_return}% · {inv.tenureMonths}mo</Text>
-              </View>
-            </Pressable>
-          ))
-        )}
-      </View>
-
-      <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelectedId(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHead}>
-              <Text style={styles.formTitle}>{selected?.name}</Text>
-              <Pressable onPress={() => setSelectedId(null)} style={{ padding: 4 }}>
-                <Feather name="x" size={24} color="#41504C" />
-              </Pressable>
-            </View>
-            
-            <View style={styles.modalMetrics}>
-              <View style={styles.modalMetricBox}>
-                <Text style={styles.metricLabel}>Projected FV</Text>
-                <Text style={styles.metricValue}>{formatMoney(selected?.projectedFv ?? 0)}</Text>
-              </View>
-              <View style={styles.modalMetricBox}>
-                <Text style={styles.metricLabel}>Total Invested</Text>
-                <Text style={styles.metricValue}>{formatMoney(selected?.projectedInvested ?? 0)}</Text>
-              </View>
-              <View style={styles.modalMetricBox}>
-                <Text style={styles.metricLabel}>Total Returns</Text>
-                <Text style={[styles.metricValue, { color: "#2D8A73" }]}>+{formatMoney(selected?.projectedReturns ?? 0)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.modalDetails}>
-              <Text style={styles.detailRow}><Text style={styles.detailLabel}>Type:</Text> {selected?.type}</Text>
-              <Text style={styles.detailRow}><Text style={styles.detailLabel}>Initial SIP:</Text> {formatMoney(selected?.monthly_amount ?? 0)}</Text>
-              <Text style={styles.detailRow}><Text style={styles.detailLabel}>Expected Return:</Text> {selected?.expected_annual_return}% p.a.</Text>
-              <Text style={styles.detailRow}><Text style={styles.detailLabel}>Tenure:</Text> {selected?.tenureMonths} months</Text>
-              <Text style={styles.detailRow}><Text style={styles.detailLabel}>Start Date:</Text> {selected?.startDate ? format(new Date(selected.startDate), 'dd/MM/yyyy') : '-'}</Text>
-              <Text style={styles.detailRow}><Text style={styles.detailLabel}>Months Elapsed:</Text> {selected?.monthsElapsed} months</Text>
-              <Text style={styles.detailRow}><Text style={styles.detailLabel}>SIP Date:</Text> {selected?.sip_day} of month</Text>
-              {selected?.step_up_enabled && (
-                <Text style={styles.detailRow}><Text style={styles.detailLabel}>Step-Up:</Text> {selected.step_up_rate}% every {selected.step_up_frequency} months</Text>
-              )}
-            </View>
-            
-            {selected?.notes ? (
-              <Text style={[styles.detailRow, { marginTop: 10 }]}><Text style={styles.detailLabel}>Notes:</Text> {selected.notes}</Text>
-            ) : null}
-
-            <Text style={styles.insightTextModal}>💡 Insight: Increasing your SIP by 10% next year could boost your returns significantly due to compounding!</Text>
-            
-            <Pressable 
-              style={{ backgroundColor: '#FDECEC', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 24, borderWidth: 1, borderColor: '#F5C6C6' }}
-              onPress={() => {
-                if (selected) {
-                  Alert.alert(
-                    "Delete Investment",
-                    `Are you sure you want to delete ${selected.name}?`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { 
-                        text: "Delete", 
-                        style: "destructive",
-                        onPress: () => {
-                          deleteInvestment(selected.id);
-                          setSelectedId(null);
-                        }
-                      }
-                    ]
-                  );
-                }
-              }}
-            >
-              <Text style={{ color: '#D32F2F', fontWeight: '700', fontSize: 15 }}>Delete Investment</Text>
-            </Pressable>
+        <View style={styles.summaryCard}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <View><Text style={styles.summaryHead}>CURRENT INVESTED</Text><Text style={styles.summaryAmount}>{formatMoney(totalCurrentInvested)}</Text></View>
+            <View style={{ alignItems: "flex-end" }}><Text style={styles.summaryHead}>PROJECTED VALUE</Text><Text style={styles.summaryAmount}>{formatMoney(totalProjectedFv)}</Text></View>
+          </View>
+          <View style={styles.summaryRow}>
+            <View><Text style={styles.summarySubLabel}>Proj. Invested</Text><Text style={styles.summarySubValue}>{formatMoney(totalProjectedInvested)}</Text></View>
+            <View style={{ alignItems: "flex-end" }}><Text style={styles.summarySubLabel}>Total Returns</Text><Text style={[styles.summarySubValue, { color: colors.primary }]}>+{formatMoney(totalProjectedReturns)}</Text></View>
+          </View>
+          <View style={[styles.commitmentRow, { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }]}>
+            <Text style={styles.commitmentText}>Commitment: {formatMoney(totalCommittedMonthly)}/mo</Text>
+            <Text style={[styles.commitmentText, { color: colors.primary }]}>Current Value: {formatMoney(totalCurrentFv)}</Text>
           </View>
         </View>
-      </Modal>
+
+        {showForm && (
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>New Investment</Text>
+            <Text style={styles.label}>NAME</Text>
+            <TextInput style={styles.input} placeholder="e.g. Nifty 50 SIP" placeholderTextColor={colors.inputPlaceholder} value={name} onChangeText={setName} />
+            <Text style={styles.label}>TYPE</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} keyboardShouldPersistTaps="handled">
+              {types.map((t) => (
+                <PressableScale key={t} style={[styles.typeChip, type === t && styles.typeChipActive]} onPress={() => setType(t)}>
+                  <Text style={[styles.typeText, type === t && styles.typeTextActive]}>{t}</Text>
+                </PressableScale>
+              ))}
+            </ScrollView>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}><Text style={styles.label}>AMOUNT/MO (₹)</Text><TextInput style={styles.input} keyboardType="numeric" value={formatInputMoney(amount)} onChangeText={(v) => setAmount(parseInputMoney(v))} placeholder="5000" placeholderTextColor={colors.inputPlaceholder} /></View>
+              <View style={{ flex: 1 }}><Text style={styles.label}>TENURE (MO)</Text><TextInput style={styles.input} keyboardType="numeric" value={tenure} onChangeText={setTenure} placeholder="36" placeholderTextColor={colors.inputPlaceholder} /></View>
+            </View>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}><Text style={styles.label}>START DATE</Text><TextInput style={styles.input} value={startDate} onChangeText={setStartDate} placeholder="DD/MM/YYYY" placeholderTextColor={colors.inputPlaceholder} /></View>
+            </View>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}><Text style={styles.label}>RETURN RATE (%)</Text><TextInput style={styles.input} keyboardType="numeric" value={returnRate} onChangeText={setReturnRate} placeholder="12" placeholderTextColor={colors.inputPlaceholder} /></View>
+              <View style={{ flex: 1 }}><Text style={styles.label}>SIP DAY (1-31)</Text><TextInput style={styles.input} keyboardType="numeric" value={sipDate} onChangeText={setSipDate} placeholder="1" placeholderTextColor={colors.inputPlaceholder} /></View>
+            </View>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Enable Step-Up SIP</Text>
+              <Switch value={stepUpEnabled} onValueChange={setStepUpEnabled} trackColor={{ true: colors.primary, false: colors.switchTrackOff }} thumbColor={colors.switchThumb} />
+            </View>
+            {stepUpEnabled && (
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flex: 1 }}><Text style={styles.label}>STEP-UP RATE (%)</Text><TextInput style={styles.input} keyboardType="numeric" value={stepUpRate} onChangeText={setStepUpRate} placeholder="10" placeholderTextColor={colors.inputPlaceholder} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.label}>FREQUENCY (MO)</Text><TextInput style={styles.input} keyboardType="numeric" value={stepUpFreq} onChangeText={setStepUpFreq} placeholder="12" placeholderTextColor={colors.inputPlaceholder} /></View>
+              </View>
+            )}
+            <Text style={styles.label}>NOTES (OPTIONAL)</Text>
+            <TextInput style={[styles.input, styles.notes]} value={notes} onChangeText={setNotes} multiline placeholderTextColor={colors.inputPlaceholder} />
+            <PressableScale style={styles.saveBtn} onPress={handleSave}><Text style={styles.saveText}>Save Investment</Text></PressableScale>
+          </View>
+        )}
+
+        <Text style={styles.allTitle}>All Investments</Text>
+        <View style={styles.listCard}>
+          {projectedInvestments.length === 0 ? (
+            <Text style={[styles.metaSub, { textAlign: "center", paddingVertical: 20 }]}>No investments yet{"\n"}Tap Add to create your first projection.</Text>
+          ) : (
+            projectedInvestments.map((inv) => (
+              <PressableScale key={inv.id} style={styles.row} onPress={() => setSelectedId(inv.id)}>
+                <View>
+                  <Text style={styles.name}>{inv.name}</Text>
+                  <Text style={styles.metaSub}>{inv.type} · Day {inv.sip_day} {inv.step_up_enabled && "· Step-Up"}</Text>
+                  <Text style={[styles.metaSub, { fontWeight: "600", color: colors.primary, marginTop: 4 }]}>({formatMoney(inv.monthly_amount)})</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.meta}>{formatMoney(inv.projectedFv)}</Text>
+                  <Text style={styles.metaSub}>{inv.expected_annual_return}% · {inv.tenureMonths}mo</Text>
+                </View>
+              </PressableScale>
+            ))
+          )}
+        </View>
+
+        <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelectedId(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHead}>
+                <Text style={styles.formTitle}>{selected?.name}</Text>
+                <PressableScale onPress={() => setSelectedId(null)} style={{ padding: 4 }}>
+                  <Feather name="x" size={24} color={colors.textSecondary} />
+                </PressableScale>
+              </View>
+              <View style={styles.modalMetrics}>
+                <View style={styles.modalMetricBox}><Text style={styles.metricLabel}>Projected FV</Text><Text style={styles.metricValue}>{formatMoney(selected?.projectedFv ?? 0)}</Text></View>
+                <View style={styles.modalMetricBox}><Text style={styles.metricLabel}>Total Invested</Text><Text style={styles.metricValue}>{formatMoney(selected?.projectedInvested ?? 0)}</Text></View>
+                <View style={styles.modalMetricBox}><Text style={styles.metricLabel}>Total Returns</Text><Text style={[styles.metricValue, { color: colors.primary }]}>+{formatMoney(selected?.projectedReturns ?? 0)}</Text></View>
+              </View>
+              <View style={styles.modalDetails}>
+                <Text style={styles.detailRow}><Text style={styles.detailLabel}>Type:</Text> {selected?.type}</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailLabel}>Initial SIP:</Text> {formatMoney(selected?.monthly_amount ?? 0)}</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailLabel}>Expected Return:</Text> {selected?.expected_annual_return}% p.a.</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailLabel}>Tenure:</Text> {selected?.tenureMonths} months</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailLabel}>Start Date:</Text> {selected?.startDate ? format(new Date(selected.startDate), "dd/MM/yyyy") : "-"}</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailLabel}>Months Elapsed:</Text> {selected?.monthsElapsed} months</Text>
+                <Text style={styles.detailRow}><Text style={styles.detailLabel}>SIP Date:</Text> {selected?.sip_day} of month</Text>
+                {selected?.step_up_enabled && (
+                  <Text style={styles.detailRow}><Text style={styles.detailLabel}>Step-Up:</Text> {selected.step_up_rate}% every {selected.step_up_frequency} months</Text>
+                )}
+              </View>
+              {selected?.notes ? <Text style={[styles.detailRow, { marginTop: 10 }]}><Text style={styles.detailLabel}>Notes:</Text> {selected.notes}</Text> : null}
+              <Text style={styles.insightTextModal}>💡 Insight: Increasing your SIP by 10% next year could boost your returns significantly due to compounding!</Text>
+              <PressableScale
+                style={styles.deleteBtn}
+                onPress={() => {
+                  if (selected) {
+                    Alert.alert("Delete Investment", `Are you sure you want to delete ${selected.name}?`, [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Delete", style: "destructive", onPress: () => { deleteInvestment(selected.id); setSelectedId(null); } },
+                    ]);
+                  }
+                }}
+              >
+                <Text style={styles.deleteText}>Delete Investment</Text>
+              </PressableScale>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F4F6F5" },
-  content: { padding: 18, paddingBottom: 34 },
-
-  nwCard: { backgroundColor: '#184B43', borderRadius: 20, padding: 20, marginBottom: 20 },
-  nwTitle: { color: '#8BB2A9', fontSize: 12, fontWeight: '700', letterSpacing: 1.5, marginBottom: 4 },
-  nwAmount: { color: '#FFFFFF', fontSize: 38, fontWeight: '800', marginBottom: 16 },
-  nwRow: { flexDirection: 'row', backgroundColor: '#215A52', borderRadius: 14, padding: 12 },
-  nwCol: { flex: 1, paddingHorizontal: 8 },
-  nwDivider: { width: 1, backgroundColor: '#3B736A', marginVertical: 4 },
-  nwSub: { color: '#8BB2A9', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  nwSubVal: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', marginTop: 2 },
-
-  section: { color: "#8A9792", fontSize: 13, letterSpacing: 1.3, fontWeight: "700", marginTop: 10 },
-  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  title: { color: "#1D2725", fontSize: 41 / 2, fontWeight: "800" },
-  addBtn: { backgroundColor: "#184B43", borderRadius: 18, paddingHorizontal: 15, paddingVertical: 8 },
-  addText: { color: "#FFFFFF", fontWeight: "700" },
-  
-  insightsCard: { backgroundColor: "#EDF2F0", borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: "#DCE3DF" },
-  insightsTitle: { fontSize: 15, fontWeight: "700", color: "#23463F", marginBottom: 6 },
-  insightText: { fontSize: 13, color: "#455551", marginBottom: 4, lineHeight: 18 },
-  
-  summaryCard: { backgroundColor: "#FFFFFF", borderRadius: 20, borderWidth: 1, borderColor: "#E3E8E5", padding: 20, marginBottom: 16 },
-  summaryHead: { color: "#8A9792", fontWeight: "700", letterSpacing: 1.2, fontSize: 12 },
-  summaryAmount: { color: "#1D2725", fontSize: 32, fontWeight: "800", marginVertical: 8 },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
-  summarySubLabel: { color: "#7D8A85", fontSize: 12, fontWeight: "600", marginBottom: 2 },
-  summarySubValue: { color: "#1F2928", fontSize: 15, fontWeight: "700" },
-  commitmentRow: { marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E9EEEB" },
-  commitmentText: { color: "#5D6C67", fontSize: 13, fontWeight: "600" },
-
-  formCard: { backgroundColor: "#FFFFFF", borderRadius: 18, borderWidth: 1, borderColor: "#E3E8E5", padding: 16, marginBottom: 14 },
-  formTitle: { color: "#1F2928", fontSize: 18, fontWeight: "700", marginBottom: 14 },
-  label: { color: "#8A9792", fontSize: 11, fontWeight: "700", letterSpacing: 0.8, marginBottom: 6 },
-  input: { backgroundColor: "#F1F4F2", color: "#1F2928", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, fontWeight: "500" },
-  notes: { minHeight: 76, textAlignVertical: "top" },
-  switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, marginTop: 4 },
-  switchLabel: { color: "#1F2928", fontWeight: "600", fontSize: 14 },
-  
-  typeChip: { borderRadius: 18, borderWidth: 1, borderColor: "#DCE3DF", paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: "#FAFCFB" },
-  typeChipActive: { backgroundColor: "#184B43", borderColor: "#184B43" },
-  typeText: { color: "#38413F", fontWeight: "600", fontSize: 13 },
-  typeTextActive: { color: "#FFFFFF" },
-  
-  saveBtn: { backgroundColor: "#184B43", borderRadius: 12, alignItems: "center", paddingVertical: 14, marginTop: 10 },
-  saveText: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
-  
-  allTitle: { color: "#2E3634", fontSize: 18, fontWeight: "700", marginBottom: 12, marginTop: 4 },
-  listCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E3E8E5", borderRadius: 18, padding: 14 },
-  row: { borderBottomColor: "#E9EEEB", borderBottomWidth: 1, paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  name: { color: "#1F2928", fontWeight: "700", fontSize: 15 },
-  metaSub: { color: "#7D8A85", fontSize: 12, marginTop: 3 },
-  meta: { color: "#1D2725", fontWeight: "700", fontSize: 15 },
-  
-  progressTrack: { height: 4, backgroundColor: "#E9EEEB", borderRadius: 2, marginTop: 8, overflow: "hidden", width: 120 },
-  progressFill: { height: "100%", backgroundColor: "#2D8A73" },
-
-  modalOverlay: { flex: 1, backgroundColor: "rgba(10,22,20,0.4)", justifyContent: "flex-end" },
-  modalCard: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
-  modalHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
-  
-  modalMetrics: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20, backgroundColor: "#F8FAF9", padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E3E8E5" },
-  modalMetricBox: { alignItems: "center" },
-  metricLabel: { color: "#8A9792", fontSize: 11, fontWeight: "700", marginBottom: 4 },
-  metricValue: { color: "#1D2725", fontSize: 15, fontWeight: "800" },
-  
-  modalDetails: { gap: 8 },
-  detailRow: { fontSize: 14, color: "#1F2928" },
-  detailLabel: { fontWeight: "600", color: "#6D7A76" },
-  insightTextModal: { marginTop: 24, fontSize: 13, color: "#23463F", backgroundColor: "#EDF2F0", padding: 12, borderRadius: 10, lineHeight: 18 }
-});

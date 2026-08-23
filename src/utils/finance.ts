@@ -1,8 +1,24 @@
 import { differenceInCalendarDays, endOfMonth, isSameMonth, startOfWeek, subWeeks, subDays, format } from "date-fns";
 import type { BudgetState, Expense, Account, Goal, Investment, Income } from "../state/types";
 
-export const calculateNetWorth = (accounts: Account[], goals: Goal[], projectedInvestments: any[], incomes: Income[] = []) => {
-  const accountsTotal = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+export const calculateAccountBalance = (account: Account, transactions: Expense[]) => {
+  let balance = account.opening_balance ?? account.balance ?? 0;
+  for (const t of transactions) {
+    if (t.type === 'TRANSFER') {
+      if (t.from_account_id === account.id) balance -= t.amount;
+      if (t.to_account_id === account.id) balance += t.amount;
+    } else if (t.type === 'INCOME' || t.type === 'REFUND') {
+      if (t.account_id === account.id || t.to_account_id === account.id) balance += t.amount;
+    } else {
+      // Default EXPENSE / ADJ / INVESTMENT
+      if (t.account_id === account.id || t.from_account_id === account.id) balance -= t.amount;
+    }
+  }
+  return balance;
+};
+
+export const calculateNetWorth = (accounts: Account[], goals: Goal[], projectedInvestments: any[], incomes: Income[] = [], transactions: Expense[] = []) => {
+  const accountsTotal = accounts.reduce((sum, acc) => sum + calculateAccountBalance(acc, transactions), 0);
   const investmentsTotal = projectedInvestments.reduce((sum, inv) => sum + (inv.currentFv || 0), 0);
   const extraIncomesTotal = incomes.reduce((sum, inc) => sum + (inc.amount || 0), 0);
   const assets = accountsTotal + investmentsTotal + extraIncomesTotal;
@@ -14,7 +30,8 @@ export const calculateNetWorth = (accounts: Account[], goals: Goal[], projectedI
   return { netWorth: assets - liabilities, assets, liabilities, accountsTotal, investmentsTotal, extraIncomesTotal };
 };
 
-export const formatMoney = (val: number | string | undefined | null) => {
+export const formatMoney = (val: number | string | undefined | null, isPrivacyEnabled: boolean = false) => {
+  if (isPrivacyEnabled) return "••••";
   const num = Number(val);
   if (Number.isNaN(num) || num == null || val === "") return "₹0";
   return `₹${Math.round(num).toLocaleString('en-IN')}`;

@@ -1,20 +1,87 @@
 import React, { useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { MaterialCommunityIcons, Feather, Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useAppStore } from "../state/AppStore";
-import { formatMoney, formatInputMoney, parseInputMoney } from "../utils/finance";
+import { formatInputMoney, parseInputMoney } from "../utils/finance";
+import { useFinance } from "../utils/useFinance";
 import { exportDatabaseToJSON } from "../services/database";
 import { useCategoriesQuery, useAddCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation, useIncomesQuery, useAddIncomeMutation, useDeleteIncomeMutation, useAccountsQuery, useAddAccountMutation, useDeleteAccountMutation, useUpdateAccountMutation } from "../state/queries";
+import { PressableScale } from "../components/PressableScale";
+import { useTheme } from "../state/ThemeContext";
+import type { ThemeColors, ThemeMode } from "../utils/theme";
+import { Spacing, FontSize, Radius } from "../utils/theme";
 
 const ICONS = ["food-outline", "home-outline", "car-outline", "heart-outline", "television-classic", "shopping-outline", "star-outline", "shape-outline", "cash", "bank", "airplane"];
 const COLORS = ["#C78C4D", "#577A67", "#4F7AA4", "#D45A5A", "#875DB1", "#D36D4B", "#6176B7", "#61738A", "#2E7D32", "#1976D2", "#D81B60"];
 
+const createStyles = (c: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    content: { padding: Spacing.lg, paddingBottom: 50 },
+    section: { color: c.textTertiary, fontSize: FontSize.small + 1, letterSpacing: 1.3, fontWeight: "700", marginTop: 10 },
+    title: { color: c.text, fontSize: 20.5, fontWeight: "800", marginBottom: Spacing.md },
+    labelMain: { color: c.text, fontSize: 18.5, fontWeight: "700", marginTop: 6, marginBottom: 8 },
+    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: Spacing.lg },
+    addText: { color: c.primary, fontWeight: "700", fontSize: FontSize.bodyLarge },
+    bigInputWrap: { flexDirection: "row", alignItems: "center", backgroundColor: c.cardBackground, borderWidth: 1, borderColor: c.cardBorder, borderRadius: Radius.lg, paddingHorizontal: Spacing.md },
+    currency: { color: c.textSecondary, fontSize: 22, marginRight: 8 },
+    bigInput: { flex: 1, height: 58, color: c.text, fontSize: 18, fontWeight: "800" },
+    help: { color: c.textTertiary, marginTop: 6, marginBottom: 8, fontWeight: "500", fontSize: FontSize.small },
+    
+    budgetStatus: { backgroundColor: c.forecastBackground, padding: Spacing.md, borderRadius: Radius.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: c.cardBorder },
+    statusText: { fontSize: FontSize.body, fontWeight: "600", color: c.forecastBody, marginBottom: 4 },
+    autoSplitBtn: { backgroundColor: c.primary, paddingVertical: 10, borderRadius: Radius.sm, alignItems: "center", marginTop: 10 },
+    autoSplitText: { color: c.primaryText, fontWeight: "700" },
+
+    row: { flexDirection: "row", alignItems: "center", backgroundColor: c.cardBackground, borderRadius: Radius.lg, borderWidth: 1, borderColor: c.cardBorder, padding: 10, marginBottom: 8 },
+    iconWrap: { width: 38, height: 38, borderRadius: Radius.md, alignItems: "center", justifyContent: "center" },
+    catText: { color: c.text, fontSize: FontSize.bodyLarge, fontWeight: "600" },
+    valueWrap: { flexDirection: "row", alignItems: "center", backgroundColor: c.inputBackground, borderRadius: Radius.md, paddingHorizontal: 10, width: 100 },
+    valueCurrency: { color: c.textSecondary, marginRight: 6, fontWeight: "600" },
+    valueInput: { height: 40, flex: 1, textAlign: "right", color: c.inputText, fontWeight: "700" },
+    
+    prefRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: c.cardBackground, borderWidth: 1, borderColor: c.cardBorder, borderRadius: Radius.lg, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, marginBottom: 8 },
+    prefLabel: { color: c.text, fontWeight: "600" },
+
+    themeRow: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.sm, marginBottom: Spacing.lg },
+    themeOption: { flex: 1, alignItems: "center", padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1, borderColor: c.cardBorder, backgroundColor: c.cardBackground },
+    themeOptionActive: { borderColor: c.primary, backgroundColor: isDark ? c.primaryMuted : c.primaryMuted },
+    themeOptionText: { marginTop: Spacing.sm, fontWeight: "600", color: c.textSecondary, fontSize: FontSize.small },
+    themeOptionTextActive: { color: c.primary, fontWeight: "700" },
+
+    modalOverlay: { flex: 1, backgroundColor: c.modalOverlay, justifyContent: "center", padding: Spacing.xl },
+    modalCard: { backgroundColor: c.modalBackground, borderRadius: Radius.xl, padding: Spacing.xl },
+    modalTitle: { fontSize: FontSize.title, fontWeight: "800", marginBottom: Spacing.lg, color: c.text },
+    modalInput: { backgroundColor: c.inputBackground, padding: Spacing.md, borderRadius: Radius.md, fontWeight: "600", marginBottom: Spacing.lg, color: c.inputText },
+    subLabel: { fontSize: FontSize.small, fontWeight: "700", color: c.textTertiary, marginBottom: 8 },
+    iconScroll: { marginBottom: Spacing.lg },
+    selIcon: { padding: 10, borderRadius: Radius.md, marginRight: 10, backgroundColor: c.cardBackground },
+    selIconActive: { backgroundColor: c.chipActiveBackground, borderWidth: 1, borderColor: c.primary },
+    colorBox: { width: 40, height: 40, borderRadius: 20, marginRight: 10, opacity: 0.5 },
+    colorBoxActive: { opacity: 1, borderWidth: 3, borderColor: c.text },
+    modalBtns: { flexDirection: "row", justifyContent: "flex-end", marginTop: 20 },
+    modalBtnCancel: { padding: Spacing.md, marginRight: 10 },
+    modalBtnSave: { padding: Spacing.md, paddingHorizontal: Spacing.xl, backgroundColor: c.primary, borderRadius: Radius.md },
+    
+    typeChip: { borderRadius: Radius.md, borderWidth: 1, borderColor: c.chipBorder, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: c.chipBackground },
+    typeChipActive: { backgroundColor: c.chipActiveBackground, borderColor: c.chipActiveBorder },
+    typeText: { color: c.chipText, fontWeight: "600", fontSize: FontSize.small },
+    typeTextActive: { color: c.chipActiveText },
+  });
+
 export const SettingsScreen = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { budget, setBudget, preferences, setPreferences } = useAppStore();
+  const { mode, setMode, colors, isDark } = useTheme();
+  const { formatMoney } = useFinance();
+
+  const styles = React.useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const { data: categories = [] } = useCategoriesQuery();
   const { mutate: addCategory } = useAddCategoryMutation();
   const { mutate: updateCategory } = useUpdateCategoryMutation();
@@ -41,10 +108,7 @@ export const SettingsScreen = () => {
   const [newIncAmount, setNewIncAmount] = useState("");
   const [newIncRecurring, setNewIncRecurring] = useState(false);
 
-  const [showAccModal, setShowAccModal] = useState(false);
-  const [newAccName, setNewAccName] = useState("");
-  const [newAccType, setNewAccType] = useState<"SAVINGS" | "EMERGENCY_FUND">("SAVINGS");
-  const [newAccBalance, setNewAccBalance] = useState("");
+
 
   const totalIncome = budget.monthlyIncome || 0;
   const totalExtraIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
@@ -99,24 +163,14 @@ export const SettingsScreen = () => {
     setShowIncomeModal(false);
   };
 
-  const handleAddAccount = () => {
-    if (!newAccName.trim() || !newAccBalance) return;
-    addAccount({
-      name: newAccName.trim(),
-      type: newAccType,
-      balance: Number(newAccBalance)
-    });
-    setNewAccName("");
-    setNewAccBalance("");
-    setShowAccModal(false);
-  };
+
 
   const handleExportData = async () => {
     try {
       const json = exportDatabaseToJSON();
       if (!json) throw new Error("Failed to export data");
       
-      const fileUri = `${FileSystem.documentDirectory}SpendWise_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      const fileUri = `${(FileSystem as any).documentDirectory}Velnora_Backup_${new Date().toISOString().slice(0, 10)}.json`;
       await FileSystem.writeAsStringAsync(fileUri, json);
       
       if (await Sharing.isAvailableAsync()) {
@@ -130,10 +184,39 @@ export const SettingsScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 14), paddingBottom: Math.max(insets.bottom, 50) }]}>
-      <Text style={styles.section}>INCOME & CYCLE</Text>
+    <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 14), paddingBottom: Math.max(insets.bottom, 50) }]} keyboardShouldPersistTaps="handled">
+      <Text style={styles.section}>PREFERENCES</Text>
       <Text style={styles.title}>Settings</Text>
 
+      {/* --- THEME SELECTOR --- */}
+      <Text style={styles.labelMain}>Appearance</Text>
+      <View style={styles.themeRow}>
+        <PressableScale
+          style={[styles.themeOption, mode === "light" && styles.themeOptionActive]}
+          onPress={() => setMode("light")}
+        >
+          <Ionicons name="sunny-outline" size={24} color={mode === "light" ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.themeOptionText, mode === "light" && styles.themeOptionTextActive]}>Light</Text>
+        </PressableScale>
+        
+        <PressableScale
+          style={[styles.themeOption, mode === "dark" && styles.themeOptionActive]}
+          onPress={() => setMode("dark")}
+        >
+          <Ionicons name="moon-outline" size={24} color={mode === "dark" ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.themeOptionText, mode === "dark" && styles.themeOptionTextActive]}>Dark</Text>
+        </PressableScale>
+        
+        <PressableScale
+          style={[styles.themeOption, mode === "system" && styles.themeOptionActive]}
+          onPress={() => setMode("system")}
+        >
+          <Ionicons name="phone-portrait-outline" size={24} color={mode === "system" ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.themeOptionText, mode === "system" && styles.themeOptionTextActive]}>System</Text>
+        </PressableScale>
+      </View>
+
+      <Text style={[styles.labelMain, { marginTop: 10 }]}>Income & Cycle</Text>
       <View style={{ flexDirection: "row", gap: 12 }}>
         <View style={{ flex: 2 }}>
           <Text style={styles.labelMain}>Monthly Income</Text>
@@ -144,7 +227,7 @@ export const SettingsScreen = () => {
               keyboardType="numeric"
               value={formatInputMoney(budget.monthlyIncome || 0)}
               placeholder="50,000"
-              placeholderTextColor="#A0ABA6"
+              placeholderTextColor={colors.inputPlaceholder}
               onChangeText={(value) => setBudget({ ...budget, monthlyIncome: Number(parseInputMoney(value) || 0) })}
             />
           </View>
@@ -158,7 +241,7 @@ export const SettingsScreen = () => {
               keyboardType="numeric"
               value={budget.paycheckDate ? String(budget.paycheckDate) : ""}
               placeholder="e.g. 7"
-              placeholderTextColor="#A0ABA6"
+              placeholderTextColor={colors.inputPlaceholder}
               onChangeText={(value) => setBudget({ ...budget, paycheckDate: Number(value || "1") })}
             />
           </View>
@@ -174,7 +257,7 @@ export const SettingsScreen = () => {
             keyboardType="numeric"
             value={formatInputMoney(budget.monthlyLimit || 0)}
             placeholder="e.g. 30,000"
-            placeholderTextColor="#A0ABA6"
+            placeholderTextColor={colors.inputPlaceholder}
             onChangeText={(value) => setBudget({ ...budget, monthlyLimit: Number(parseInputMoney(value) || 0) })}
           />
         </View>
@@ -184,23 +267,23 @@ export const SettingsScreen = () => {
       {/* --- EXTRA INCOMES --- */}
       <View style={styles.headerRow}>
         <Text style={styles.labelMain}>Extra Incomes (Side Hustles)</Text>
-        <Pressable onPress={() => setShowIncomeModal(true)}>
+        <PressableScale onPress={() => setShowIncomeModal(true)}>
           <Text style={styles.addText}>+ Log Income</Text>
-        </Pressable>
+        </PressableScale>
       </View>
       {incomes.map(inc => (
         <View key={inc.id} style={styles.row}>
-          <View style={[styles.iconWrap, { backgroundColor: "#D5E8D4" }]}>
-            <MaterialCommunityIcons name="cash-plus" size={18} color="#2E7D32" />
+          <View style={[styles.iconWrap, { backgroundColor: colors.successMuted }]}>
+            <MaterialCommunityIcons name="cash-plus" size={18} color={colors.success} />
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.catText}>{inc.source}</Text>
-            <Text style={{ fontSize: 12, color: "#8A9792" }}>{inc.date.slice(0,10)} {inc.is_recurring ? "🔄" : ""}</Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary }}>{inc.date.slice(0,10)} {inc.is_recurring ? "🔄" : ""}</Text>
           </View>
-          <Text style={{ fontWeight: "700", color: "#2E7D32" }}>+{formatMoney(inc.amount)}</Text>
-          <Pressable onPress={() => deleteIncome(inc.id)} style={{ paddingLeft: 10 }}>
-            <Feather name="trash-2" size={16} color="#A0ABA6" />
-          </Pressable>
+          <Text style={{ fontWeight: "700", color: colors.success }}>+{formatMoney(inc.amount)}</Text>
+          <PressableScale onPress={() => deleteIncome(inc.id)} style={{ paddingLeft: 10 }}>
+            <Feather name="trash-2" size={16} color={colors.textTertiary} />
+          </PressableScale>
         </View>
       ))}
       <Text style={styles.help}>Track side hustles, bonuses, and gifts.</Text>
@@ -208,55 +291,33 @@ export const SettingsScreen = () => {
       {/* --- ACCOUNTS --- */}
       <View style={styles.headerRow}>
         <Text style={styles.labelMain}>Accounts & Balances</Text>
-        <Pressable onPress={() => setShowAccModal(true)}>
-          <Text style={styles.addText}>+ Add Account</Text>
-        </Pressable>
       </View>
-      {accounts.map(acc => (
-        <View key={acc.id} style={styles.row}>
-          <View style={[styles.iconWrap, { backgroundColor: acc.type === 'EMERGENCY_FUND' ? "#FCE4EC" : "#E3F2FD" }]}>
-            <MaterialCommunityIcons name={acc.type === 'EMERGENCY_FUND' ? "shield-plus" : "bank"} size={18} color={acc.type === 'EMERGENCY_FUND' ? "#D81B60" : "#1976D2"} />
-          </View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.catText}>{acc.name}</Text>
-            <Text style={{ fontSize: 12, color: "#8A9792" }}>{acc.type}</Text>
-          </View>
-          <View style={styles.valueWrap}>
-            <Text style={styles.valueCurrency}>₹</Text>
-            <TextInput
-              style={styles.valueInput}
-              keyboardType="numeric"
-              value={formatInputMoney(String(acc.balance || 0))}
-              onChangeText={(val) => updateAccount({ id: acc.id, patch: { balance: Number(parseInputMoney(val) || 0) } })}
-            />
-          </View>
-          <Pressable onPress={() => deleteAccount(acc.id)} style={{ paddingLeft: 10 }}>
-            <Feather name="trash-2" size={16} color="#A0ABA6" />
-          </Pressable>
-        </View>
-      ))}
-      <Text style={styles.help}>Emergency funds & liquid savings to include in your net worth.</Text>
+      <PressableScale onPress={() => navigation.navigate("Accounts")} style={{ backgroundColor: colors.cardBackground, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1, borderColor: colors.cardBorder, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ color: colors.text, fontSize: FontSize.body, fontWeight: "600" }}>Manage Accounts</Text>
+        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+      </PressableScale>
+      <Text style={styles.help}>Manage checking, savings, wallets, and track your balances.</Text>
 
       <View style={styles.headerRow}>
         <Text style={styles.labelMain}>Category Budgets</Text>
-        <Pressable onPress={() => setShowModal(true)}>
+        <PressableScale onPress={() => setShowModal(true)}>
           <Text style={styles.addText}>+ Add</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.budgetStatus}>
         <Text style={styles.statusText}>Allocated: {formatMoney(totalAllocated)} / {formatMoney(overallIncome)}</Text>
-        <Text style={[styles.statusText, { color: unallocated < 0 ? "#D32F2F" : "#2D8A73" }]}>
+        <Text style={[styles.statusText, { color: unallocated < 0 ? colors.destructive : colors.success }]}>
           {unallocated >= 0 ? `Unallocated: ${formatMoney(unallocated)}` : `Over-budget: ${formatMoney(Math.abs(unallocated))}`}
         </Text>
-        <Pressable style={styles.autoSplitBtn} onPress={handleAutoSplit}>
+        <PressableScale style={styles.autoSplitBtn} onPress={handleAutoSplit}>
           <Text style={styles.autoSplitText}>Auto-Split Remaining</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       {categories.map((cat) => (
         <View key={cat.id} style={styles.row}>
-          <View style={[styles.iconWrap, { backgroundColor: cat.color + "20" }]}>
+          <View style={[styles.iconWrap, { backgroundColor: cat.color + (isDark ? "30" : "20") }]}>
             <MaterialCommunityIcons name={cat.icon as any} size={18} color={cat.color} />
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
@@ -271,9 +332,9 @@ export const SettingsScreen = () => {
               onChangeText={(val) => updateCategory({ id: cat.id, patch: { monthly_limit: Number(parseInputMoney(val) || 0) } })}
             />
           </View>
-          <Pressable onPress={() => deleteCategory(cat.id)} style={{ paddingLeft: 10 }}>
-            <Feather name="trash-2" size={16} color="#A0ABA6" />
-          </Pressable>
+          <PressableScale onPress={() => deleteCategory(cat.id)} style={{ paddingLeft: 10 }}>
+            <Feather name="trash-2" size={16} color={colors.textTertiary} />
+          </PressableScale>
         </View>
       ))}
 
@@ -283,8 +344,8 @@ export const SettingsScreen = () => {
         <Switch
           value={preferences.dailyReminder}
           onValueChange={(value) => setPreferences({ ...preferences, dailyReminder: value })}
-          trackColor={{ false: "#CED6D2", true: "#8BB2A9" }}
-          thumbColor="#FFFFFF"
+          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
+          thumbColor={colors.switchThumb}
         />
       </View>
       <View style={styles.prefRow}>
@@ -292,8 +353,17 @@ export const SettingsScreen = () => {
         <Switch
           value={preferences.compactMode}
           onValueChange={(value) => setPreferences({ ...preferences, compactMode: value })}
-          trackColor={{ false: "#CED6D2", true: "#8BB2A9" }}
-          thumbColor="#FFFFFF"
+          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
+          thumbColor={colors.switchThumb}
+        />
+      </View>
+      <View style={styles.prefRow}>
+        <Text style={styles.prefLabel}>Biometric App Lock</Text>
+        <Switch
+          value={preferences.biometricLock}
+          onValueChange={(value) => setPreferences({ ...preferences, biometricLock: value })}
+          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
+          thumbColor={colors.switchThumb}
         />
       </View>
 
@@ -301,50 +371,50 @@ export const SettingsScreen = () => {
         <Text style={styles.labelMain}>Data Management</Text>
       </View>
       <View style={styles.row}>
-        <View style={[styles.iconWrap, { backgroundColor: "#E3E8E5" }]}>
-          <MaterialCommunityIcons name="database-export" size={18} color="#455551" />
+        <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated }]}>
+          <MaterialCommunityIcons name="database-export" size={18} color={colors.textSecondary} />
         </View>
         <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.catText}>Export Data</Text>
-          <Text style={{ fontSize: 12, color: "#8A9792" }}>Backup your entire database as a JSON file</Text>
+          <Text style={{ fontSize: 12, color: colors.textSecondary }}>Backup your entire database as a JSON file</Text>
         </View>
-        <Pressable onPress={handleExportData} style={{ backgroundColor: "#184B43", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}>
-           <Text style={{ color: "#FFF", fontWeight: "700" }}>Export</Text>
-        </Pressable>
+        <PressableScale onPress={handleExportData} style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}>
+           <Text style={{ color: colors.primaryText, fontWeight: "700" }}>Export</Text>
+        </PressableScale>
       </View>
 
       <Modal visible={showModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>New Category</Text>
-            <TextInput style={styles.modalInput} placeholder="Category Name" placeholderTextColor="#7E8E88" value={newCatName} onChangeText={setNewCatName} />
-            <TextInput style={styles.modalInput} placeholder="Monthly Target Amount (₹)" placeholderTextColor="#7E8E88" keyboardType="numeric" value={formatInputMoney(newCatAmount)} onChangeText={v => setNewCatAmount(parseInputMoney(v))} />
+            <TextInput style={styles.modalInput} placeholder="Category Name" placeholderTextColor={colors.inputPlaceholder} value={newCatName} onChangeText={setNewCatName} />
+            <TextInput style={styles.modalInput} placeholder="Monthly Target Amount (₹)" placeholderTextColor={colors.inputPlaceholder} keyboardType="numeric" value={formatInputMoney(newCatAmount)} onChangeText={v => setNewCatAmount(parseInputMoney(v))} />
             
             <Text style={styles.subLabel}>Icon</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconScroll} keyboardShouldPersistTaps="handled">
               {ICONS.map(ic => (
-                <Pressable key={ic} onPress={() => setNewCatIcon(ic)} style={[styles.selIcon, newCatIcon === ic && styles.selIconActive]}>
-                  <MaterialCommunityIcons name={ic as any} size={24} color={newCatIcon === ic ? "#184B43" : "#8A9792"} />
-                </Pressable>
+                <PressableScale key={ic} onPress={() => setNewCatIcon(ic)} style={[styles.selIcon, newCatIcon === ic && styles.selIconActive]}>
+                  <MaterialCommunityIcons name={ic as any} size={24} color={newCatIcon === ic ? colors.primary : colors.textTertiary} />
+                </PressableScale>
               ))}
             </ScrollView>
 
             <Text style={styles.subLabel}>Color</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconScroll} keyboardShouldPersistTaps="handled">
               {COLORS.map(c => (
-                <Pressable key={c} onPress={() => setNewCatColor(c)} style={[styles.colorBox, { backgroundColor: c }, newCatColor === c && styles.colorBoxActive]} />
+                <PressableScale key={c} onPress={() => setNewCatColor(c)} style={[styles.colorBox, { backgroundColor: c }, newCatColor === c && styles.colorBoxActive]}><View /></PressableScale>
               ))}
             </ScrollView>
 
             <View style={[styles.prefRow, { marginTop: 10 }]}>
               <Text style={styles.prefLabel}>Fixed/Recurring Expense?</Text>
-              <Switch value={newCatFixed} onValueChange={setNewCatFixed} />
+              <Switch value={newCatFixed} onValueChange={setNewCatFixed} trackColor={{ false: colors.switchTrackOff, true: colors.primary }} thumbColor={colors.switchThumb} />
             </View>
             <Text style={styles.help}>Fixed expenses are excluded from Auto-Split.</Text>
 
             <View style={styles.modalBtns}>
-              <Pressable style={styles.modalBtnCancel} onPress={() => setShowModal(false)}><Text style={{ color: "#D32F2F", fontWeight: "700" }}>Cancel</Text></Pressable>
-              <Pressable style={styles.modalBtnSave} onPress={handleAddCategory}><Text style={{ color: "#FFF", fontWeight: "700" }}>Save</Text></Pressable>
+              <PressableScale style={styles.modalBtnCancel} onPress={() => setShowModal(false)}><Text style={{ color: colors.destructive, fontWeight: "700" }}>Cancel</Text></PressableScale>
+              <PressableScale style={styles.modalBtnSave} onPress={handleAddCategory}><Text style={{ color: colors.primaryText, fontWeight: "700" }}>Save</Text></PressableScale>
             </View>
           </View>
         </View>
@@ -354,99 +424,23 @@ export const SettingsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Log Extra Income</Text>
-            <TextInput style={styles.modalInput} placeholder="Source (e.g. Freelance, Bonus)" placeholderTextColor="#7E8E88" value={newIncSource} onChangeText={setNewIncSource} />
-            <TextInput style={styles.modalInput} placeholder="Amount" placeholderTextColor="#7E8E88" keyboardType="numeric" value={formatInputMoney(newIncAmount)} onChangeText={v => setNewIncAmount(parseInputMoney(v))} />
+            <TextInput style={styles.modalInput} placeholder="Source (e.g. Freelance, Bonus)" placeholderTextColor={colors.inputPlaceholder} value={newIncSource} onChangeText={setNewIncSource} />
+            <TextInput style={styles.modalInput} placeholder="Amount" placeholderTextColor={colors.inputPlaceholder} keyboardType="numeric" value={formatInputMoney(newIncAmount)} onChangeText={v => setNewIncAmount(parseInputMoney(v))} />
 
             <View style={[styles.prefRow, { marginTop: 10, borderWidth: 0, paddingHorizontal: 0 }]}>
               <Text style={styles.prefLabel}>Is this a recurring monthly income?</Text>
-              <Switch value={newIncRecurring} onValueChange={setNewIncRecurring} />
+              <Switch value={newIncRecurring} onValueChange={setNewIncRecurring} trackColor={{ false: colors.switchTrackOff, true: colors.primary }} thumbColor={colors.switchThumb} />
             </View>
 
             <View style={styles.modalBtns}>
-              <Pressable style={styles.modalBtnCancel} onPress={() => setShowIncomeModal(false)}><Text style={{ color: "#D32F2F", fontWeight: "700" }}>Cancel</Text></Pressable>
-              <Pressable style={styles.modalBtnSave} onPress={handleAddIncome}><Text style={{ color: "#FFF", fontWeight: "700" }}>Save</Text></Pressable>
+              <PressableScale style={styles.modalBtnCancel} onPress={() => setShowIncomeModal(false)}><Text style={{ color: colors.destructive, fontWeight: "700" }}>Cancel</Text></PressableScale>
+              <PressableScale style={styles.modalBtnSave} onPress={handleAddIncome}><Text style={{ color: colors.primaryText, fontWeight: "700" }}>Save</Text></PressableScale>
             </View>
           </View>
         </View>
       </Modal>
 
-      <Modal visible={showAccModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Add Account</Text>
-            <TextInput style={styles.modalInput} placeholder="Account Name (e.g. HDFC Savings)" placeholderTextColor="#7E8E88" value={newAccName} onChangeText={setNewAccName} />
-            <TextInput style={styles.modalInput} placeholder="Current Balance (₹)" placeholderTextColor="#7E8E88" keyboardType="numeric" value={formatInputMoney(newAccBalance)} onChangeText={v => setNewAccBalance(parseInputMoney(v))} />
-
-            <Text style={styles.subLabel}>Account Type</Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-               <Pressable onPress={() => setNewAccType("SAVINGS")} style={[styles.typeChip, newAccType === "SAVINGS" && styles.typeChipActive]}>
-                 <Text style={[styles.typeText, newAccType === "SAVINGS" && styles.typeTextActive]}>SAVINGS</Text>
-               </Pressable>
-               <Pressable onPress={() => setNewAccType("EMERGENCY_FUND")} style={[styles.typeChip, newAccType === "EMERGENCY_FUND" && styles.typeChipActive]}>
-                 <Text style={[styles.typeText, newAccType === "EMERGENCY_FUND" && styles.typeTextActive]}>EMERGENCY FUND</Text>
-               </Pressable>
-            </View>
-
-            {newAccType === "EMERGENCY_FUND" && (
-               <Text style={[styles.help, { marginBottom: 16, color: '#184B43' }]}>💡 Recommended target: {formatMoney(totalAllocated * 6)} (6x Monthly Expenses)</Text>
-            )}
-
-            <View style={styles.modalBtns}>
-              <Pressable style={styles.modalBtnCancel} onPress={() => setShowAccModal(false)}><Text style={{ color: "#D32F2F", fontWeight: "700" }}>Cancel</Text></Pressable>
-              <Pressable style={styles.modalBtnSave} onPress={handleAddAccount}><Text style={{ color: "#FFF", fontWeight: "700" }}>Save</Text></Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F4F6F5" },
-  content: { padding: 14, paddingBottom: 50 },
-  section: { color: "#8B9792", fontSize: 13, letterSpacing: 1.3, fontWeight: "700", marginTop: 10 },
-  title: { color: "#1F2928", fontSize: 41 / 2, fontWeight: "800", marginBottom: 12 },
-  labelMain: { color: "#303937", fontSize: 37 / 2, fontWeight: "700", marginTop: 6, marginBottom: 8 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16 },
-  addText: { color: "#184B43", fontWeight: "700", fontSize: 15 },
-  bigInputWrap: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8E5", borderRadius: 16, paddingHorizontal: 14 },
-  currency: { color: "#6F7A76", fontSize: 22, marginRight: 8 },
-  bigInput: { flex: 1, height: 58, color: "#2A3230", fontSize: 36 / 2, fontWeight: "800" },
-  help: { color: "#7F8C87", marginTop: 6, marginBottom: 8, fontWeight: "500", fontSize: 12 },
-  
-  budgetStatus: { backgroundColor: "#EDF2F0", padding: 14, borderRadius: 12, marginBottom: 16 },
-  statusText: { fontSize: 14, fontWeight: "600", color: "#4A5652", marginBottom: 4 },
-  autoSplitBtn: { backgroundColor: "#184B43", paddingVertical: 10, borderRadius: 8, alignItems: "center", marginTop: 10 },
-  autoSplitText: { color: "#FFF", fontWeight: "700" },
-
-  row: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1, borderColor: "#E2E8E5", padding: 10, marginBottom: 8 },
-  iconWrap: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  catText: { color: "#2F3836", fontSize: 15, fontWeight: "600" },
-  valueWrap: { flexDirection: "row", alignItems: "center", backgroundColor: "#F1F4F2", borderRadius: 12, paddingHorizontal: 10, width: 100 },
-  valueCurrency: { color: "#8A9792", marginRight: 6, fontWeight: "600" },
-  valueInput: { height: 40, flex: 1, textAlign: "right", color: "#46524E", fontWeight: "700" },
-  
-  prefRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8E5", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 8 },
-  prefLabel: { color: "#2D3734", fontWeight: "600" },
-
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 },
-  modalCard: { backgroundColor: "#FFF", borderRadius: 20, padding: 20 },
-  modalTitle: { fontSize: 18, fontWeight: "800", marginBottom: 16 },
-  modalInput: { backgroundColor: "#F1F4F2", padding: 12, borderRadius: 12, fontWeight: "600", marginBottom: 16 },
-  subLabel: { fontSize: 12, fontWeight: "700", color: "#8A9792", marginBottom: 8 },
-  iconScroll: { marginBottom: 16 },
-  selIcon: { padding: 10, borderRadius: 12, marginRight: 10, backgroundColor: "#F4F6F5" },
-  selIconActive: { backgroundColor: "#DCE5E3", borderWidth: 1, borderColor: "#184B43" },
-  colorBox: { width: 40, height: 40, borderRadius: 20, marginRight: 10, opacity: 0.5 },
-  colorBoxActive: { opacity: 1, borderWidth: 3, borderColor: "#333" },
-  modalBtns: { flexDirection: "row", justifyContent: "flex-end", marginTop: 20 },
-  modalBtnCancel: { padding: 12, marginRight: 10 },
-  modalBtnSave: { padding: 12, paddingHorizontal: 20, backgroundColor: "#184B43", borderRadius: 12 },
-  
-  typeChip: { borderRadius: 12, borderWidth: 1, borderColor: "#DCE3DF", paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#F4F6F5" },
-  typeChipActive: { backgroundColor: "#184B43", borderColor: "#184B43" },
-  typeText: { color: "#46524E", fontWeight: "600", fontSize: 12 },
-  typeTextActive: { color: "#FFFFFF" }
-});
