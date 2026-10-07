@@ -5,10 +5,16 @@ export type ExpenseCategory =
   | "Health"
   | "Entertainment"
   | "Shopping"
-  | "Sapna"
+  | "Family"
+  | "Bills"
+  | "Housing"
+  | "Education"
+  | "Travel"
   | "Other";
 
 export type TransactionType = 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'REFUND' | 'ADJUSTMENT' | 'INVESTMENT_CONTRIBUTION' | 'INVESTMENT_WITHDRAWAL';
+
+export type TransactionStatus = 'CLEARED' | 'CONFIRMED' | 'PENDING' | 'REVIEW' | 'DUPLICATE' | 'DELETED';
 
 export type Expense = {
   id: string;
@@ -22,15 +28,19 @@ export type Expense = {
   type?: TransactionType;
   from_account_id?: string;
   to_account_id?: string;
-  status?: string;
+  status?: TransactionStatus | string;
   source?: string;
   fingerprint?: string;
+  merchant_name?: string;
+  reference_number?: string;
+  occasion?: string;
+  confidence?: number;
 };
 
 export type Investment = {
   id: string;
   name: string;
-  type: "SIP" | "Mutual Fund" | "Stocks" | "FD" | "RD" | "Gold ETF" | "Liquid Fund" | "Index Fund" | "ETF";
+  type: "SIP" | "Mutual Fund" | "Stocks" | "FD" | "RD" | "Gold ETF" | "Liquid Fund" | "Index Fund" | "ETF" | "PF";
   monthly_amount: number;
   startDate: string;
   tenureMonths: number;
@@ -42,6 +52,9 @@ export type Investment = {
   sip_day: number;
   notes?: string;
   goal_linked?: string;
+  // Portfolio tracking (actual holdings)
+  current_value?: number;
+  invested_amount?: number;
 };
 
 export type GoalCategory = "Needs" | "Wants" | "Urgent";
@@ -59,6 +72,10 @@ export type Goal = {
   notes?: string;
   isDebt: boolean;
   completed: boolean;
+  // New: linked account and contribution tracking
+  account_id?: string;
+  monthly_contribution?: number;
+  expected_completion_date?: string;
 };
 
 export type Category = {
@@ -76,11 +93,14 @@ export type Account = {
   id: string;
   name: string;
   type: AccountType;
-  balance: number; // Will be derived in the UI, but kept for legacy/fallback
-  opening_balance?: number; // New source of truth for the base amount
-  target_months?: number; // Only used for EMERGENCY_FUND (e.g. 6 months)
+  balance: number;
+  opening_balance?: number;
+  target_months?: number;
   notes?: string;
   created_at: string;
+  // Reconciliation fields
+  actual_balance?: number;
+  last_reconciled_date?: string;
 };
 
 export type Income = {
@@ -90,6 +110,53 @@ export type Income = {
   date: string;
   is_recurring: boolean;
   notes?: string;
+};
+
+export type RecurringPaymentFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+export type RecurringPaymentStatus = 'UPCOMING' | 'DUE' | 'PAID' | 'SKIPPED' | 'OVERDUE';
+
+export type RecurringPayment = {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  account_id?: string;
+  frequency: RecurringPaymentFrequency;
+  next_due: string;
+  status: RecurringPaymentStatus;
+  notes?: string;
+  created_at: string;
+};
+
+export type Debt = {
+  id: string;
+  name: string;
+  principal: number;
+  outstanding: number;
+  interest_rate: number;
+  min_payment: number;
+  frequency: RecurringPaymentFrequency;
+  due_day: number;
+  next_payment_date: string;
+  notes?: string;
+  created_at: string;
+};
+
+export type MerchantMapping = {
+  id: string;
+  merchant_name: string;
+  category: string;
+  account_id?: string;
+  usage_count: number;
+};
+
+export type PFContribution = {
+  id: string;
+  month: string; // "YYYY-MM"
+  employee_amount: number;
+  employer_amount: number;
+  total: number;
+  created_at: string;
 };
 
 export type BudgetState = {
@@ -115,6 +182,25 @@ export type ChatSession = {
 
 export type ThemeMode = "light" | "dark" | "system";
 
+export type PaymentQueueStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export type PaymentQueueItem = {
+  id: string;
+  image_uri: string;           // Local file URI of the shared image
+  created_at: string;
+  status: PaymentQueueStatus;
+  // Parsed / user-filled fields
+  name?: string;
+  amount?: number;
+  category?: string;
+  account_id?: string;
+  note?: string;
+  date?: string;
+  confidence?: number;         // AI parse confidence (0–100)
+  // After approval, links to the created expense
+  expense_id?: string;
+};
+
 export type UserPreferences = {
   dailyReminder: boolean;
   currency: "INR";
@@ -122,4 +208,11 @@ export type UserPreferences = {
   themeMode: ThemeMode;
   isPrivacyEnabled: boolean;
   biometricLock: boolean;
+  dailyLimit?: number;
+  pfConfig?: {
+    initialBalance: number;
+    monthlyContribution: number;
+    contributionDay: number;
+    setupDate: string;
+  };
 };

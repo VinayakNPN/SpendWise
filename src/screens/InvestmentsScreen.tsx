@@ -19,14 +19,14 @@ const createStyles = (c: ThemeColors, isDark: boolean) =>
     root: { flex: 1, backgroundColor: c.background },
     content: { padding: Spacing.lg + 2, paddingBottom: 34 },
     nwCard: { backgroundColor: isDark ? c.surfaceElevated : c.primary, borderRadius: Radius.xl, padding: Spacing.xl, marginBottom: Spacing.xl },
-    nwTitle: { color: isDark ? c.textTertiary : "#8BB2A9", fontSize: FontSize.small, fontWeight: "700", letterSpacing: 1.5, marginBottom: 4 },
-    nwAmount: { color: isDark ? c.primary : "#FFFFFF", fontSize: 38, fontWeight: "800", marginBottom: Spacing.lg },
-    nwRow: { flexDirection: "row", backgroundColor: isDark ? c.surface : "#215A52", borderRadius: Radius.md + 2, padding: Spacing.md },
+    nwTitle: { color: isDark ? c.textTertiary : "#1C2B28", fontSize: FontSize.small, fontWeight: "700", letterSpacing: 1.5, marginBottom: 4 },
+    nwAmount: { color: isDark ? c.primary : "#000000", fontSize: 38, fontWeight: "800", marginBottom: Spacing.lg },
+    nwRow: { flexDirection: "row", backgroundColor: isDark ? c.surface : "#A5D6A7", borderRadius: Radius.md + 2, padding: Spacing.md },
     nwCol: { flex: 1, paddingHorizontal: Spacing.sm },
-    nwDivider: { width: 1, backgroundColor: isDark ? c.border : "#3B736A", marginVertical: 4 },
-    nwSub: { color: isDark ? c.textTertiary : "#8BB2A9", fontSize: 10, fontWeight: "700", letterSpacing: 1 },
-    nwSubVal: { color: isDark ? c.text : "#FFFFFF", fontSize: FontSize.bodyLarge, fontWeight: "700", marginTop: 2 },
-    nwMeta: { fontSize: FontSize.caption, color: isDark ? c.textTertiary : "#A0B2AC" },
+    nwDivider: { width: 1, backgroundColor: isDark ? c.border : "#81C784", marginVertical: 4 },
+    nwSub: { color: isDark ? c.textTertiary : "#1C2B28", fontSize: 10, fontWeight: "700", letterSpacing: 1 },
+    nwSubVal: { color: isDark ? c.text : "#000000", fontSize: FontSize.bodyLarge, fontWeight: "700", marginTop: 2 },
+    nwMeta: { fontSize: FontSize.caption, color: isDark ? c.textTertiary : "#1C2B28", fontWeight: "600" },
     section: { color: c.textTertiary, fontSize: FontSize.small + 1, letterSpacing: 1.3, fontWeight: "700", marginTop: 10 },
     titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md + 2 },
     title: { color: c.text, fontSize: 20.5, fontWeight: "800" },
@@ -81,7 +81,7 @@ export const InvestmentsScreen = () => {
   const insets = useSafeAreaInsets();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { budget } = useAppStore();
+  const { budget, preferences } = useAppStore();
   const { data: expenses = [] } = useExpensesQuery();
   const { data: investments = [] } = useInvestmentsQuery();
   const { data: accounts = [] } = useAccountsQuery();
@@ -97,6 +97,8 @@ export const InvestmentsScreen = () => {
 
   const addInvestment = (inv: any) => addInvestmentMut(inv);
   const deleteInvestment = (id: string) => deleteInvestmentMut(id);
+
+  const [activeTab, setActiveTab] = useState<"Portfolio" | "Planner">("Portfolio");
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -137,7 +139,7 @@ export const InvestmentsScreen = () => {
   const totalProjectedFv = projectedInvestments.reduce((acc, inv) => acc + inv.projectedFv, 0);
   const totalProjectedReturns = totalProjectedFv - totalProjectedInvested;
 
-  const { netWorth, assets, liabilities, accountsTotal, investmentsTotal, extraIncomesTotal } = calculateNetWorth(accounts, goals, projectedInvestments, incomes, expenses);
+  const { netWorth, assets, liabilities, accountsTotal, investmentsActual, pfBalance } = calculateNetWorth(accounts, goals, projectedInvestments, incomes, expenses, preferences);
   const bestPerforming = projectedInvestments.reduce((best, curr) => curr.projectedReturns > (best?.projectedReturns || 0) ? curr : best, projectedInvestments[0]);
 
   const handleSave = () => {
@@ -167,7 +169,7 @@ export const InvestmentsScreen = () => {
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} style={{ flex: 1 }}>
       <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 40) }]} keyboardShouldPersistTaps="handled">
 
-        <View style={styles.nwCard}>
+        <PressableScale style={styles.nwCard} onPress={() => navigation.navigate("NetWorthBreakdown")}>
           <Text style={styles.nwTitle}>NET WORTH</Text>
           <Text style={styles.nwAmount}>{formatMoney(netWorth)}</Text>
           <View style={styles.nwRow}>
@@ -177,18 +179,61 @@ export const InvestmentsScreen = () => {
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
             <Text style={styles.nwMeta}>Accounts: {formatMoney(accountsTotal)}</Text>
-            <Text style={styles.nwMeta}>Investments (FV): {formatMoney(investmentsTotal)}</Text>
-            <Text style={styles.nwMeta}>Extra Income: {formatMoney(extraIncomesTotal)}</Text>
+            <Text style={styles.nwMeta}>Investments: {formatMoney(investmentsActual)}</Text>
+            {pfBalance > 0 && <Text style={styles.nwMeta}>PF: {formatMoney(pfBalance)}</Text>}
           </View>
-        </View>
+        </PressableScale>
 
-        <Text style={styles.section}>PORTFOLIO</Text>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Investment Planner</Text>
-          <PressableScale style={styles.addBtn} onPress={() => setShowForm((v) => !v)}>
-            <Text style={styles.addText}>{showForm ? "Cancel" : "+ Add"}</Text>
+        <View style={{ flexDirection: "row", backgroundColor: isDark ? colors.surfaceElevated : colors.surface, borderRadius: Radius.pill, padding: 4, marginBottom: Spacing.xl }}>
+          <PressableScale onPress={() => setActiveTab("Portfolio")} style={{ flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: Radius.pill, backgroundColor: activeTab === "Portfolio" ? colors.primary : "transparent" }}>
+            <Text style={{ color: activeTab === "Portfolio" ? colors.primaryText : colors.textSecondary, fontWeight: "700" }}>Portfolio</Text>
+          </PressableScale>
+          <PressableScale onPress={() => setActiveTab("Planner")} style={{ flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: Radius.pill, backgroundColor: activeTab === "Planner" ? colors.primary : "transparent" }}>
+            <Text style={{ color: activeTab === "Planner" ? colors.primaryText : colors.textSecondary, fontWeight: "700" }}>Planner</Text>
           </PressableScale>
         </View>
+
+        {activeTab === "Portfolio" ? (
+          <>
+            <View style={styles.summaryCard}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <View><Text style={styles.summaryHead}>CURRENT INVESTED</Text><Text style={styles.summaryAmount}>{formatMoney(totalCurrentInvested)}</Text></View>
+                <View style={{ alignItems: "flex-end" }}><Text style={styles.summaryHead}>CURRENT VALUE</Text><Text style={[styles.summaryAmount, { color: colors.primary }]}>{formatMoney(totalCurrentFv)}</Text></View>
+              </View>
+              <View style={styles.summaryRow}>
+                <View><Text style={styles.summarySubLabel}>Total Gains</Text><Text style={[styles.summarySubValue, { color: colors.success }]}>+{formatMoney(Math.max(0, totalCurrentFv - totalCurrentInvested))}</Text></View>
+              </View>
+            </View>
+
+            <Text style={styles.allTitle}>Your Holdings</Text>
+            <View style={styles.listCard}>
+              {projectedInvestments.length === 0 ? (
+                <Text style={[styles.metaSub, { textAlign: "center", paddingVertical: 20 }]}>No holdings yet{"\n"}Go to Planner to add an investment.</Text>
+              ) : (
+                projectedInvestments.map((inv) => (
+                  <PressableScale key={inv.id} style={styles.row} onPress={() => setSelectedId(inv.id)}>
+                    <View>
+                      <Text style={styles.name}>{inv.name}</Text>
+                      <Text style={styles.metaSub}>{inv.type}</Text>
+                      <Text style={[styles.metaSub, { fontWeight: "600", color: colors.primary, marginTop: 4 }]}>Invested: {formatMoney(inv.currentInvested)}</Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={styles.meta}>{formatMoney(inv.currentFv)}</Text>
+                      <Text style={[styles.metaSub, { color: colors.success }]}>+{formatMoney(Math.max(0, inv.currentFv - inv.currentInvested))} gain</Text>
+                    </View>
+                  </PressableScale>
+                ))
+              )}
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>Investment Projections</Text>
+              <PressableScale style={styles.addBtn} onPress={() => setShowForm((v) => !v)}>
+                <Text style={styles.addText}>{showForm ? "Cancel" : "+ Add"}</Text>
+              </PressableScale>
+            </View>
 
         <View style={styles.insightsCard}>
           <Text style={styles.insightsTitle}>💡 Smart Insights</Text>
@@ -263,26 +308,28 @@ export const InvestmentsScreen = () => {
           </View>
         )}
 
-        <Text style={styles.allTitle}>All Investments</Text>
-        <View style={styles.listCard}>
-          {projectedInvestments.length === 0 ? (
-            <Text style={[styles.metaSub, { textAlign: "center", paddingVertical: 20 }]}>No investments yet{"\n"}Tap Add to create your first projection.</Text>
-          ) : (
-            projectedInvestments.map((inv) => (
-              <PressableScale key={inv.id} style={styles.row} onPress={() => setSelectedId(inv.id)}>
-                <View>
-                  <Text style={styles.name}>{inv.name}</Text>
-                  <Text style={styles.metaSub}>{inv.type} · Day {inv.sip_day} {inv.step_up_enabled && "· Step-Up"}</Text>
-                  <Text style={[styles.metaSub, { fontWeight: "600", color: colors.primary, marginTop: 4 }]}>({formatMoney(inv.monthly_amount)})</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.meta}>{formatMoney(inv.projectedFv)}</Text>
-                  <Text style={styles.metaSub}>{inv.expected_annual_return}% · {inv.tenureMonths}mo</Text>
-                </View>
-              </PressableScale>
-            ))
-          )}
-        </View>
+            <Text style={styles.allTitle}>All Projections</Text>
+            <View style={styles.listCard}>
+              {projectedInvestments.length === 0 ? (
+                <Text style={[styles.metaSub, { textAlign: "center", paddingVertical: 20 }]}>No investments yet{"\n"}Tap Add to create your first projection.</Text>
+              ) : (
+                projectedInvestments.map((inv) => (
+                  <PressableScale key={inv.id} style={styles.row} onPress={() => setSelectedId(inv.id)}>
+                    <View>
+                      <Text style={styles.name}>{inv.name}</Text>
+                      <Text style={styles.metaSub}>{inv.type} · Day {inv.sip_day} {inv.step_up_enabled && "· Step-Up"}</Text>
+                      <Text style={[styles.metaSub, { fontWeight: "600", color: colors.primary, marginTop: 4 }]}>({formatMoney(inv.monthly_amount)})</Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={styles.meta}>{formatMoney(inv.projectedFv)}</Text>
+                      <Text style={styles.metaSub}>{inv.expected_annual_return}% · {inv.tenureMonths}mo</Text>
+                    </View>
+                  </PressableScale>
+                ))
+              )}
+            </View>
+          </>
+        )}
 
         <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelectedId(null)}>
           <View style={styles.modalOverlay}>

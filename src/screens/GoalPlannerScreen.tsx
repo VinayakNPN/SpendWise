@@ -4,13 +4,15 @@ import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppStore } from "../state/AppStore";
-import { useExpensesQuery, useGoalsQuery, useAddGoalMutation, useUpdateGoalMutation, useDeleteGoalMutation } from "../state/queries";
-import { monthlySpend, formatInputMoney, parseInputMoney } from "../utils/finance";
+import { useExpensesQuery, useGoalsQuery, useAddGoalMutation, useUpdateGoalMutation, useDeleteGoalMutation, useAddExpenseMutation, useAccountsQuery } from "../state/queries";
+import { monthlySpend, formatInputMoney, parseInputMoney, calculateGoalProgress } from "../utils/finance";
 import { useFinance } from "../utils/useFinance";
 import { PressableScale } from "../components/PressableScale";
 import { useTheme } from "../state/ThemeContext";
 import type { ThemeColors } from "../utils/theme";
 import { Spacing, FontSize, Radius } from "../utils/theme";
+import { addMonths, format } from "date-fns";
+import type { Goal } from "../state/types";
 
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({
@@ -58,25 +60,37 @@ export const GoalPlannerScreen = () => {
   const { budget } = useAppStore();
   const { data: expenses = [] } = useExpensesQuery();
   const { data: goals = [] } = useGoalsQuery();
+  const { data: accounts = [] } = useAccountsQuery();
   const { mutate: addGoal } = useAddGoalMutation();
   const { mutate: updateGoal } = useUpdateGoalMutation();
   const { mutate: deleteGoal } = useDeleteGoalMutation();
+  const { mutate: addExpense } = useAddExpenseMutation();
   const { colors } = useTheme();
   const { formatMoney } = useFinance();
 
   const styles = React.useMemo(() => createStyles(colors), [colors]);
 
   const [showForm, setShowForm] = useState(false);
+  const [showContrib, setShowContrib] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  
   const [title, setTitle] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [months, setMonths] = useState("");
+  const [monthlyContribution, setMonthlyContribution] = useState("");
+  const [accountId, setAccountId] = useState("");
   const [isDebt, setIsDebt] = useState(false);
+  
+  const [contribAmount, setContribAmount] = useState("");
+  const [fromAccountId, setFromAccountId] = useState("");
 
   const spent = monthlySpend(expenses);
   const disposable = Math.max(0, (budget.monthlyIncome || 0) - spent);
 
   const handleSave = () => {
     if (!title.trim() || !targetAmount || !months) return;
+    const completionDate = addMonths(new Date(), Number(months)).toISOString();
+    
     addGoal({
       title: title.trim(),
       targetAmount: Number(targetAmount),
@@ -86,12 +100,40 @@ export const GoalPlannerScreen = () => {
       completed: false,
       category: isDebt ? "Debt" : "General",
       priority: "Medium",
-    });
+      monthly_contribution: Number(monthlyContribution) || 0,
+      account_id: accountId || undefined,
+      expected_completion_date: completionDate,
+    } as any);
     setTitle("");
     setTargetAmount("");
     setMonths("");
+    setMonthlyContribution("");
+    setAccountId("");
     setIsDebt(false);
     setShowForm(false);
+  };
+
+  const handleAddContribution = () => {
+    if (!selectedGoal || !contribAmount || !fromAccountId) return;
+    addExpense({
+      name: `Contribution to ${selectedGoal.title}`,
+      amount: Number(contribAmount),
+      category: 'Transfer',
+      date: new Date().toISOString(),
+      type: 'TRANSFER',
+      from_account_id: fromAccountId,
+      to_account_id: selectedGoal.account_id || selectedGoal.id,
+      source: 'MANUAL',
+      status: 'CLEARED'
+    } as any);
+    setContribAmount("");
+    setFromAccountId("");
+    setShowContrib(false);
+  };
+
+  const openContribution = (g: Goal) => {
+    setSelectedGoal(g);
+    setShowContrib(true);
   };
 
   const activeGoals = goals.filter((g) => !g.completed);
@@ -114,8 +156,9 @@ export const GoalPlannerScreen = () => {
         <Text style={styles.emptyText}>No active goals. Add one to start tracking!</Text>
       ) : (
         activeGoals.map((goal) => {
+          const actualSaved = calculateGoalProgress(goal.id, goal.account_id, expenses);
           const needPerMonth = goal.targetAmount / Math.max(1, goal.timelineMonths);
-          const progress = Math.min(100, ((goal.savedAmount || 0) / goal.targetAmount) * 100);
+          const progress = Math.min(100, (actualSaved / goal.targetAmount) * 100);
           return (
             <View key={goal.id} style={styles.card}>
               <View style={styles.cardHead}>
@@ -132,9 +175,11 @@ export const GoalPlannerScreen = () => {
 
               <Text style={styles.cardBody}>
                 Target: {formatMoney(goal.targetAmount)} in {goal.timelineMonths} months
+                {goal.expected_completion_date && ` (by ${format(new Date(goal.expected_completion_date), "MMM yyyy")})`}
               </Text>
               <Text style={styles.cardBody}>
                 Requires approx {formatMoney(needPerMonth)}/month
+                {goal.monthly_contribution ? ` • Set: ${formatMoney(goal.monthly_contribution)}/mo` : ""}
               </Text>
 
               <View style={styles.progressRow}>
@@ -147,12 +192,13 @@ export const GoalPlannerScreen = () => {
               <View style={styles.cardActions}>
                 <View style={styles.actionRow}>
                   <Text style={styles.actionLabel}>Saved (₹)</Text>
-                  <TextInput
-                    style={styles.saveInput}
-                    keyboardType="numeric"
-                    value={goal.savedAmount ? formatInputMoney(String(goal.savedAmount)) : ""}
-                    onChangeText={(val) => updateGoal({ id: goal.id, patch: { savedAmount: Number(parseInputMoney(val) || 0) } })}
-                  />
+                  <Text style={{ fontWeight: "800", color: colors.text }}>{formatMoney(actualSaved)}</Text>
+                </View>
+
+                <View style={styles.actionRow}>
+                  <PressableScale style={[styles.completeBtn, { backgroundColor: colors.surfaceElevated, marginRight: Spacing.sm }]} onPress={() => openContribution(goal)}>
+                    <Text style={[styles.completeBtnText, { color: colors.text }]}>+ Log</Text>
+                  </PressableScale>
                 </View>
               </View>
 
@@ -210,6 +256,31 @@ export const GoalPlannerScreen = () => {
               </View>
             </View>
 
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Monthly Contrib.</Text>
+                <TextInput style={styles.input} keyboardType="numeric" value={monthlyContribution} onChangeText={setMonthlyContribution} placeholder="e.g. 5000" placeholderTextColor={colors.inputPlaceholder} />
+              </View>
+            </View>
+
+            {accounts.length > 0 && (
+              <View style={{ marginBottom: Spacing.md }}>
+                <Text style={styles.label}>Link Account (Optional)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: "row", gap: 8, paddingVertical: 4 }}>
+                    <PressableScale onPress={() => setAccountId("")} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.pill, backgroundColor: colors.cardBackground, borderWidth: 1, borderColor: accountId === "" ? colors.primary : colors.border }}>
+                      <Text style={{ color: accountId === "" ? colors.primary : colors.textSecondary, fontWeight: "600" }}>None</Text>
+                    </PressableScale>
+                    {accounts.map(a => (
+                      <PressableScale key={a.id} onPress={() => setAccountId(a.id)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.pill, backgroundColor: colors.cardBackground, borderWidth: 1, borderColor: accountId === a.id ? colors.primary : colors.border }}>
+                        <Text style={{ color: accountId === a.id ? colors.primary : colors.textSecondary, fontWeight: "600" }}>{a.name}</Text>
+                      </PressableScale>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>Is this a Debt/Loan repayment?</Text>
               <Switch value={isDebt} onValueChange={setIsDebt} trackColor={{ true: colors.primary, false: colors.switchTrackOff }} thumbColor={colors.switchThumb} />
@@ -223,6 +294,36 @@ export const GoalPlannerScreen = () => {
               <PressableScale style={styles.modalBtnSave} onPress={handleSave}>
                 <Text style={{ color: colors.primaryText, fontWeight: "700" }}>Save Goal</Text>
               </PressableScale>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={showContrib} transparent animationType="slide" onRequestClose={() => setShowContrib(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Log Contribution</Text>
+            
+            <Text style={styles.label}>AMOUNT ADDED</Text>
+            <TextInput style={styles.input} keyboardType="numeric" placeholder="e.g. 1000" placeholderTextColor={colors.inputPlaceholder} value={contribAmount} onChangeText={setContribAmount} />
+            
+            <Text style={styles.label}>FROM ACCOUNT</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
+               <View style={{ flexDirection: "row", gap: 8, paddingVertical: 4 }}>
+                  {accounts.map(a => (
+                     <PressableScale key={a.id} onPress={() => setFromAccountId(a.id)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.pill, backgroundColor: colors.cardBackground, borderWidth: 1, borderColor: fromAccountId === a.id ? colors.primary : colors.border }}>
+                        <Text style={{ color: fromAccountId === a.id ? colors.primary : colors.textSecondary, fontWeight: "600" }}>{a.name}</Text>
+                     </PressableScale>
+                  ))}
+               </View>
+            </ScrollView>
+            
+            <View style={styles.modalBtns}>
+              <Pressable style={styles.modalBtnCancel} onPress={() => setShowContrib(false)}>
+                <Text style={{ color: colors.text, fontWeight: "700" }}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalBtnSave} onPress={handleAddContribution}>
+                <Text style={{ color: colors.primaryText, fontWeight: "700" }}>Add Funds</Text>
+              </Pressable>
             </View>
           </View>
         </View>

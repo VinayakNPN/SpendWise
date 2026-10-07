@@ -1,5 +1,6 @@
-import { differenceInCalendarDays, endOfMonth, isSameMonth, startOfWeek, subWeeks, subDays, format } from "date-fns";
-import type { BudgetState, Expense, Account, Goal, Investment, Income } from "../state/types";
+import { differenceInCalendarDays, startOfWeek, subDays, format } from "date-fns";
+import { computeDynamicPFBalance } from './pfCalculator';
+import type { BudgetState, Expense, Account, Goal, Investment, Income, UserPreferences } from "../state/types";
 
 export const calculateAccountBalance = (account: Account, transactions: Expense[]) => {
   let balance = account.opening_balance ?? account.balance ?? 0;
@@ -17,21 +18,53 @@ export const calculateAccountBalance = (account: Account, transactions: Expense[
   return balance;
 };
 
-export const calculateNetWorth = (accounts: Account[], goals: Goal[], projectedInvestments: any[], incomes: Income[] = [], transactions: Expense[] = []) => {
+export const calculateGoalProgress = (goalId: string, accountId: string | undefined, transactions: Expense[]) => {
+  const targetId = accountId || goalId; // Fallback to goalId as a pseudo-account if no real account is linked
+  return transactions.reduce((acc, t) => {
+    if ((t.type === 'TRANSFER' || t.type === 'INVESTMENT_CONTRIBUTION') && t.to_account_id === targetId) return acc + t.amount;
+    if ((t.type === 'TRANSFER' || t.type === 'INVESTMENT_WITHDRAWAL') && t.from_account_id === targetId) return acc - t.amount;
+    return acc;
+  }, 0);
+};
+
+/**
+ * Current net worth = actual cash + actual invested amounts − outstanding debt
+ * Projected future value is NOT included (per spec: "Current net worth ≠ projected future wealth")
+ */
+export const calculateNetWorth = (accounts: Account[], goals: Goal[], investments: Investment[], incomes: Income[] = [], transactions: Expense[] = [], preferences?: UserPreferences) => {
+  // Real account balances derived from transactions
   const accountsTotal = accounts.reduce((sum, acc) => sum + calculateAccountBalance(acc, transactions), 0);
-  const investmentsTotal = projectedInvestments.reduce((sum, inv) => sum + (inv.currentFv || 0), 0);
-  const extraIncomesTotal = incomes.reduce((sum, inc) => sum + (inc.amount || 0), 0);
-  const assets = accountsTotal + investmentsTotal + extraIncomesTotal;
   
+  // Only actual invested amount, NOT projected future value
+  const investmentsActual = investments.reduce((sum, inv) => {
+    // If current_value is set (portfolio tracking), use it
+    if (inv.current_value !== undefined && inv.current_value !== null) return sum + inv.current_value;
+    // If invested_amount is set, use it
+    if (inv.invested_amount !== undefined && inv.invested_amount !== null) return sum + inv.invested_amount;
+    // Fallback: estimate from monthly_amount × months elapsed
+    const startDate = new Date(inv.startDate);
+    const now = new Date();
+    const monthsElapsed = Math.max(0, (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth()));
+    return sum + (inv.monthly_amount * Math.min(monthsElapsed, inv.tenureMonths));
+  }, 0);
+
+  const pfBalance = preferences?.pfConfig ? computeDynamicPFBalance(preferences.pfConfig).currentBalance : 0;
+
+  const assets = accountsTotal + investmentsActual + pfBalance;
+  
+  // Outstanding debt (goals marked as debt with remaining balance)
   const liabilities = goals
     .filter(g => g.isDebt && !g.completed)
-    .reduce((sum, g) => sum + Math.max(0, g.targetAmount - (g.savedAmount || 0)), 0);
+    .reduce((sum, g) => {
+      const saved = calculateGoalProgress(g.id, g.account_id, transactions);
+      return sum + Math.max(0, g.targetAmount - saved);
+    }, 0);
     
-  return { netWorth: assets - liabilities, assets, liabilities, accountsTotal, investmentsTotal, extraIncomesTotal };
+  return { netWorth: assets - liabilities, assets, liabilities, accountsTotal, investmentsActual, pfBalance };
 };
 
 export const formatMoney = (val: number | string | undefined | null, isPrivacyEnabled: boolean = false) => {
-  if (isPrivacyEnabled) return "••••";
+  if (isPrivacyEnabled) return "₹•••••";
   const num = Number(val);
   if (Number.isNaN(num) || num == null || val === "") return "₹0";
   return `₹${Math.round(num).toLocaleString('en-IN')}`;
@@ -82,11 +115,13 @@ export const inCurrentCycle = (dateStr: string, paycheckDate: number = 1) => {
 };
 
 export const monthlySpend = (expenses: Expense[], paycheckDate: number = 1) =>
-  expenses.filter((e) => inCurrentCycle(e.date, paycheckDate)).reduce((acc, item) => acc + item.amount, 0);
+  expenses
+    .filter((e) => (e.type === 'EXPENSE' || !e.type) && inCurrentCycle(e.date, paycheckDate))
+    .reduce((acc, item) => acc + item.amount, 0);
 
 export const categorySpend = (expenses: Expense[], paycheckDate: number = 1) => {
   const map: Record<string, number> = {};
-  for (const item of expenses.filter((e) => inCurrentCycle(e.date, paycheckDate))) {
+  for (const item of expenses.filter((e) => (e.type === 'EXPENSE' || !e.type) && inCurrentCycle(e.date, paycheckDate))) {
     map[item.category] = (map[item.category] ?? 0) + item.amount;
   }
   return map;
@@ -136,7 +171,7 @@ export const topThreeCategories = (expenses: Expense[], paycheckDate: number = 1
 };
 
 export const currentNoSpendStreak = (expenses: Expense[]) => {
-  const byDay = new Set(expenses.map((e) => e.date.slice(0, 10)));
+  const byDay = new Set(expenses.filter(e => e.type === 'EXPENSE' || !e.type).map((e) => e.date.slice(0, 10)));
   let streak = 0;
   const cursor = new Date();
   for (let i = 0; i < 30; i += 1) {
@@ -153,8 +188,10 @@ export const weeklyReport = (expenses: Expense[]) => {
   const startOfThisWeek = startOfWeek(now, { weekStartsOn: 1 });
   const startOfLastWeek = subDays(startOfThisWeek, 7);
   
-  const thisWeek = expenses.filter(e => new Date(e.date) >= startOfThisWeek).reduce((sum, e) => sum + e.amount, 0);
-  const lastWeek = expenses.filter(e => {
+  const expensesOnly = expenses.filter(e => e.type === 'EXPENSE' || !e.type);
+  
+  const thisWeek = expensesOnly.filter(e => new Date(e.date) >= startOfThisWeek).reduce((sum, e) => sum + e.amount, 0);
+  const lastWeek = expensesOnly.filter(e => {
     const d = new Date(e.date);
     return d >= startOfLastWeek && d < startOfThisWeek;
   }).reduce((sum, e) => sum + e.amount, 0);
@@ -168,10 +205,11 @@ export const weeklyReport = (expenses: Expense[]) => {
 export const getLast30DaysSpend = (expenses: Expense[]) => {
   const result = [];
   const today = new Date();
+  const expensesOnly = expenses.filter(e => e.type === 'EXPENSE' || !e.type);
   for (let i = 29; i >= 0; i--) {
     const d = subDays(today, i);
     const dateStr = format(d, 'yyyy-MM-dd');
-    const spentToday = expenses.filter(e => e.date.startsWith(dateStr)).reduce((sum, e) => sum + e.amount, 0);
+    const spentToday = expensesOnly.filter(e => e.date.startsWith(dateStr)).reduce((sum, e) => sum + e.amount, 0);
     result.push({
       date: d,
       noSpend: spentToday === 0

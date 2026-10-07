@@ -40,7 +40,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Load persisted theme preference
   useEffect(() => {
-    AsyncStorage.getItem(THEME_KEY).then((stored) => {
+    AsyncStorage.getItem(THEME_KEY).then((stored: any) => {
       if (stored === "light" || stored === "dark" || stored === "system") {
         setModeState(stored);
       }

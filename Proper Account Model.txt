@@ -1,0 +1,795 @@
+Proper Account Model
+
+Support accounts as real money containers:
+
+SBI
+Bank of India
+UPI Lite
+Cash
+Future additional bank/wallet accounts
+Investment accounts
+
+Account balances should be calculated from transactions, rather than manually maintained.
+Transfers
+
+For example:
+
+SBI → UPI Lite ₹5,000
+
+must be a transfer, not a ₹5,000 expense.
+
+Financially Correct Calculations
+
+Fix the underlying calculations for:
+
+Net worth
+Account balances
+Total spending
+Income
+Transfers
+Investments
+Debt
+Goals
+Budget
+Forecasts
+
+Especially:
+
+Current net worth ≠ projected future wealth.
+
+2. Transaction Capture
+
+This is one of the biggest features we decided to introduce.
+
+Share-to-App Transaction Capture
+
+After making a payment:
+
+Payment → Receipt → Share → Your App
+
+The app should open and extract:
+
+Amount
+Merchant
+Date
+Time
+UPI/reference number
+Possible payment account
+Receipt image/PDF/text
+
+Then the user only needs to:
+
+Confirm/edit extracted details
+Select category
+Select account
+Save
+
+Target experience:
+
+Payment → Share → Category → Save
+
+within a few seconds.
+
+Supported Inputs
+
+Eventually support:
+
+Shared receipt text
+Receipt screenshots/images
+PDFs
+UPI/payment receipts
+
+Merchant Intelligence
+
+The app should remember user behavior locally.
+
+Example:
+
+Swiggy → Food
+Uber → Transport
+Amazon → Shopping
+Netflix → Entertainment
+
+So future transactions can automatically suggest:
+
+Category
+Account
+Merchant information
+
+The user remains in control and can correct suggestions.
+
+Duplicate Transaction Detection
+
+Before saving a transaction, the app should detect likely duplicates using combinations of:
+
+Amount
+Merchant
+Date/time
+Account
+Reference number
+Receipt fingerprint
+
+Example:
+
+“This looks similar to an existing ₹487 Zomato transaction.”
+
+Then allow:
+
+Keep both
+Use existing
+Edit
+
+Never silently delete or reject a transaction.
+
+Reconciliation System
+
+This is another major feature.
+
+The application should compare:
+
+Ledger balance
+
+against
+
+Actual bank/account balance
+
+Example:
+
+SBI
+
+App balance     ₹38,240
+Actual balance  ₹37,740
+
+Difference      -₹500
+
+Then the app should help identify the cause:
+
+Missing transaction
+Duplicate transaction
+Missing transfer
+Incorrect transaction
+Balance adjustment
+
+Balance Drift Detection
+
+The app should detect when account balances don't match the expected ledger state.
+
+For example:
+
+SBI
+
+Expected: ₹37,820
+Actual:   ₹37,300
+Drift:    ₹520
+
+Then investigate possible causes.
+
+Global Eye / Privacy Mode
+
+Add an Eye icon at the global app level.
+
+Tap:
+
+Eye → all financial values hidden
+
+For example:
+
+₹*****
+
+
+or another consistent placeholder.
+
+It should affect:
+
+Home
+Account balances
+Expenses
+Income
+Budgets
+Goals
+Debt
+Investments
+Net worth
+Forecasts
+Financial summaries
+AI monetary output displayed by the UI
+
+Tap again:
+
+Eye → values visible
+
+Extended Privacy & Security
+
+Beyond the Eye icon:
+
+App Privacy
+
+Consider:
+
+Biometric app lock
+Background/app-switcher privacy
+Automatic privacy mode
+Sensitive-content hiding
+Data Security
+Local-first storage
+Secure key storage
+Encrypted backups
+No hardcoded encryption keys
+No sensitive financial data in logs
+12. Keyboard & Form UX Improvements
+
+This was specifically added after reviewing your latest feedback.
+
+Whenever the keyboard opens:
+
+Focused input must remain visible
+Keyboard must not cover the input
+Form should scroll automatically
+Save button should remain accessible
+Bottom navigation should not overlap the keyboard
+Dismissing keyboard should not cause weird layout jumps
+Switching fields should preserve sensible scroll position
+
+This must work across every form, not only the expense screen.
+
+Amount Input Improvements
+
+The amount field should become the best interaction in the app.
+
+When typing:
+
+5
+50
+500
+5,000
+
+we add subtle animation to the amount display.
+
+Potential effects:
+
+slight scale
+fade/transition
+smooth numeric formatting
+
+It must remain very subtle and must not interfere with typing.
+
+Also:
+
+numeric keyboard
+proper Indian number formatting
+proper validation
+large amount handling
+correct cursor behavior
+
+General Micro-Interactions
+
+Add subtle feedback to important actions:
+
+Button press
+Card tap
+Category selection
+Account selection
+Save confirmation
+Delete/undo
+Toggle selection
+Privacy mode
+Transaction confirmation
+
+Animations should be purposeful, short and lightweight.
+
+Activity / Expense Screen Redesign
+
+Move toward:
+
+Activity
+
+[Search]
+
+[All] [Expenses] [Income] [Transfers] [Pending]
+
+Today
+...
+
+Yesterday
+...
+
+Earlier
+...
+
+Instead of a large permanent add form consuming the top of the screen.
+
+Transactions become the primary content.
+
+Transaction Detail Screen
+
+Every transaction should have a proper detail view.
+
+Show:
+
+Amount
+Merchant
+Category
+Account
+Date/time
+Transaction type
+Reference
+Source
+Receipt
+Notes
+Status
+
+Actions:
+
+Edit
+Duplicate
+Delete
+Change category
+Change account
+Mark duplicate
+
+Safer Delete Behavior
+
+We decided to remove the always-visible destructive delete affordance from transaction rows.
+
+Instead:
+
+Swipe action
+More menu
+Detail-page action
+
+And preferably:
+
+Deleted transaction
+
+[Undo]
+
+rather than immediately destroying the data.
+
+Safe-to-Spend
+
+This is one of the most important product-level features.
+
+Instead of showing only:
+
+Budget remaining
+
+the app should calculate:
+
+Available cash
+- upcoming obligations
+- planned investments
+- debt payments
+- goal allocations
+- safety buffer
+=
+Safe to Spend
+
+Example:
+
+Safe to Spend
+
+₹21,365
+until Aug 31
+
+This should become a central Home-screen metric.
+
+Upcoming Payments
+
+Introduce expected financial obligations.
+
+For example:
+
+Upcoming
+
+Rent      ₹10,265
+SIP        ₹3,000
+
+Possible states:
+
+Upcoming
+Due
+Paid
+Skipped
+Overdue
+
+Important:
+
+An expected recurring payment must not automatically become a completed expense.
+
+Recurring Payment System
+
+Users can define:
+
+Rent
+SIP
+Subscription
+EMI
+Insurance
+Other recurring commitments
+
+The system creates an expected payment.
+
+When the user confirms payment, the actual transaction is created.
+
+Home Dashboard Redesign
+
+The Home screen should prioritize actual financial decisions.
+
+Proposed hierarchy:
+
+Safe to Spend
+Accounts
+Transactions needing review
+Upcoming payments
+Monthly spending
+Budget health
+Secondary insights
+AI insights
+
+The current dashboard's AI forecast should no longer dominate the first screen.
+
+Accounts Dashboard
+
+Create a dedicated account overview:
+
+SBI             ₹*****
+Bank of India   ₹*****
+UPI Lite        ₹*****
+
+Total Cash      ₹*****
+
+Each account should show:
+
+Current balance
+Recent activity
+Money in
+Money out
+Transfers
+Reconciliation state
+Last reconciled date
+
+Goals Improvements
+
+Goals should be linked to actual money.
+
+Instead of simply:
+
+Target ₹80,000
+Saved ₹20,000
+
+we should track:
+
+Target
+Actual allocated amount
+Account
+Monthly contribution
+Expected completion date
+Contribution history
+
+Debt Improvements
+
+Debt tracking should become more complete.
+
+Track:
+
+Principal
+Outstanding amount
+Interest
+Minimum payment
+Payment frequency
+Due date
+Next payment
+Payment history
+Estimated payoff date
+
+Investment Improvements
+
+Separate two concepts clearly.
+
+Current portfolio
+Current value
+Invested amount
+Gain/loss
+Holdings
+Returns
+Investment planner
+Monthly investment
+Expected return
+Duration
+Step-up
+Future value
+
+Projected investment value must not be counted as current net worth.
+
+Financial Time Machine
+
+One of the more unique ideas we discussed.
+
+Allow the user to choose a historical date and see:
+
+What did my financial state look like on that day?
+
+Potentially reconstruct:
+
+Account balances
+Investments
+Debt
+Goals
+Net worth
+Spending
+
+Basically:
+
+Git history for your finances.
+
+Spend Autopsy
+
+When spending suddenly rises:
+
+August spending +23%
+
+the app explains:
+
+Shopping    +₹4,200
+Travel      +₹2,100
+Dining      +₹1,500
+
+and compares against previous periods.
+
+Balance Explanation
+
+For any account:
+
+“Why did my SBI balance fall this week?”
+
+The app can explain:
+
+₹5,000 → UPI Lite
+₹3,200 → Rent
+₹1,830 → Food
+₹1,400 → Shopping
+
+This is more useful than simply showing a balance chart.
+
+	AI Finance Assistant Improvements
+
+The AI should stop being just a chat interface over a static financial summary.
+
+It should eventually be able to call deterministic finance tools such as:
+
+Get account balance
+Get monthly spending
+Get category spending
+Get upcoming payments
+Find missing transactions
+Calculate Safe-to-Spend
+Compare periods
+Simulate goal completion
+Simulate debt payoff
+
+Architecture:
+
+AI
+ ↓
+Finance Tool Layer
+ ↓
+Actual Finance Engine
+
+The AI explains the numbers; it does not calculate them unreliably.
+
+AI Privacy Improvements
+
+Current client-side Groq-key approach should be replaced for production.
+
+Possible architecture:
+
+App
+ ↓
+Your secure backend
+ ↓
+Groq
+
+or local/hybrid processing.
+
+The app should explicitly distinguish:
+
+Local-only AI
+Optional cloud AI
+
+The user should know when financial data leaves the device.
+
+Reports & Analytics Improvements
+
+Expand analytics around useful financial questions rather than simply adding more charts.
+
+Examples:
+
+Spending by category
+Spending trends
+Month-over-month comparison
+Account cash flow
+Income vs expense
+Recurring commitments
+Budget performance
+Goal progress
+Debt progress
+Investment performance
+Net worth history
+Spending anomalies
+
+Settings Redesign
+
+Instead of one large settings page, separate:
+
+Money
+Accounts
+Categories
+Budget
+Planning
+Goals
+Debt
+Recurring payments
+Investments
+Security
+Privacy mode
+Biometrics
+App lock
+Background privacy
+Data
+Backup
+Restore
+Export
+Import
+Notifications
+Payment reminders
+Upcoming payments
+AI & Privacy
+AI mode
+Cloud AI
+Local-only mode
+Appearance
+Theme
+Compact mode
+
+Backup & Restore
+
+Current JSON export should evolve into a proper versioned backup system.
+
+Backup should include:
+
+Transactions
+Accounts
+Categories
+Budgets
+Goals
+Debt
+Investments
+Merchant mappings
+Recurring payments
+Preferences
+Schema version
+App version
+
+Potential future:
+
+Encrypted backup
+
+with secure platform key storage.
+
+Merchant & Category Structure Improvements
+
+Categories should remain stable and reusable.
+
+Instead of:
+
+Rakhi Expense
+Personal Living Expense
+
+use:
+
+Shopping
+Family
+Food
+Transport
+Bills
+Health
+Housing
+Education
+Entertainment
+Travel
+Other
+
+Then use additional metadata:
+
+Occasion = Rakhi
+Note = Gift for sister
+
+This gives much better long-term analytics.
+
+Database & Engineering Improvements
+
+We also decided to improve the underlying architecture.
+
+Important items:
+
+Integer paise/minor-unit money storage
+Proper foreign keys
+Explicit schema migrations
+Transaction indexes
+Account indexes
+Category indexes
+Status indexes
+Date indexes
+Merchant normalization
+Transaction fingerprints
+Proper timezone handling
+Virtualized transaction lists
+Large-dataset performance testing
+37. Accessibility & Responsive UI
+
+The refined app should support:
+
+44–48dp touch targets
+screen readers
+text scaling
+display scaling
+sufficient contrast
+accessible icon labels
+reduced-motion preferences
+long merchant names
+long category names
+very large amounts
+small screens
+large screens
+keyboard-open layouts
+38. Performance
+
+We also decided to prepare the application for large ledgers.
+
+Target testing:
+
+1,000 transactions
+10,000 transactions
+50,000 transactions
+
+Use:
+
+virtualized lists
+SQLite indexes
+memoized selectors
+efficient queries
+localized recalculations
+
+
+A proper PF calculations as well, Like I can set my monthly PF contributions and it should automatically increase the PF history in my app, additionally ad a feature of adding previous PF contributions as well.
+
+Typing into the amount field should remain instant even with a large database.
+
+                USER PAYMENT
+                     │
+          ┌──────────┼──────────┐
+          │          │          │
+        SHARE   NOTIFICATION  IMPORT
+          │          │          │
+          └──────────┼──────────┘
+                     ↓
+             FINANCIAL INBOX
+                     ↓
+              CLASSIFICATION
+                     ↓
+                  LEDGER
+                     ↓
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+       ACCOUNTS    BUDGETS    GOALS
+          ↓          ↓          ↓
+       RECONCILIATION
+                     ↓
+             FINANCIAL STATE
+                     ↓
+          SAFE-TO-SPEND / INSIGHTS
+                     ↓
+                 AI ASSISTANT
+                 
+                 
+

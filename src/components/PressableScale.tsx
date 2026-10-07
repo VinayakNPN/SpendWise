@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { Pressable, PressableProps, ViewStyle, StyleProp } from "react-native";
+import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,6 +12,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type PressableScaleProps = PressableProps & {
   scaleValue?: number;
+  haptic?: "none" | "light" | "medium" | "heavy";
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 };
@@ -22,6 +24,7 @@ type PressableScaleProps = PressableProps & {
  */
 export const PressableScale = ({
   scaleValue = 0.97,
+  haptic = "light",
   children,
   style,
   onPress,
@@ -34,11 +37,19 @@ export const PressableScale = ({
   }));
 
   const handlePressIn = useCallback(() => {
+    if (haptic === "light") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } else if (haptic === "medium") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    } else if (haptic === "heavy") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    }
+    
     scale.value = withTiming(scaleValue, {
       duration: 100,
       easing: Easing.out(Easing.ease),
     });
-  }, [scale, scaleValue]);
+  }, [scale, scaleValue, haptic]);
 
   const handlePressOut = useCallback(() => {
     scale.value = withTiming(1, {

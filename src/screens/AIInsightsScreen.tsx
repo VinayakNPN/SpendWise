@@ -9,6 +9,8 @@ import { askGroq } from "../services/groq";
 import { budgetSignals, categorySpend, monthlySpend, topThreeCategories, weeklyReport, calculateNetWorth } from "../utils/finance";
 import { useFinance } from "../utils/useFinance";
 import { calculateInvestmentProjections } from "../utils/investmentCalc";
+import { buildFinancialContext } from "../services/financeTools";
+import { privacyNotice } from "../services/aiPrivacy";
 import { PressableScale } from "../components/PressableScale";
 import { useTheme } from "../state/ThemeContext";
 import type { ThemeColors } from "../utils/theme";
@@ -56,6 +58,25 @@ const createStyles = (c: ThemeColors) =>
     msgText: { color: c.text, lineHeight: 19 },
     emptyHistory: { color: c.textSecondary, marginTop: Spacing.sm },
     modalOverlay: { flex: 1, backgroundColor: c.modalOverlay },
+    
+    // Insights styles
+    tabs: { flexDirection: "row", backgroundColor: c.cardBackground, borderRadius: Radius.md, padding: 4, marginBottom: Spacing.lg },
+    tab: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: Radius.md },
+    tabActive: { backgroundColor: c.primary },
+    tabText: { fontWeight: "700", color: c.textSecondary },
+    tabTextActive: { color: c.primaryText },
+    
+    card: { backgroundColor: c.cardBackground, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md, borderWidth: 1, borderColor: c.cardBorder },
+    cardHeader: { color: c.textSecondary, fontSize: FontSize.body, fontWeight: "700", marginBottom: Spacing.md },
+    barRow: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.sm },
+    barLabel: { flex: 1, color: c.text, fontSize: FontSize.small, fontWeight: "600" },
+    barValue: { color: c.text, fontSize: FontSize.small, fontWeight: "700", marginLeft: 8 },
+    barTrack: { height: 8, backgroundColor: c.borderLight, borderRadius: 4, overflow: "hidden", marginTop: 4 },
+    barFill: { height: "100%", borderRadius: 4 },
+    
+    insightBox: { backgroundColor: c.primaryMuted, padding: Spacing.md, borderRadius: Radius.md, marginTop: Spacing.sm },
+    insightText: { color: c.primary, fontWeight: "600", fontSize: FontSize.body },
+
     inputBar: {
       flexDirection: "row",
       alignItems: "flex-end",
@@ -94,6 +115,8 @@ export const AIInsightsScreen = () => {
   const top = topThreeCategories(expenses);
   const stats = budgetSignals(expenses, budget);
   const weekly = weeklyReport(expenses);
+  
+  const [activeTab, setActiveTab] = useState<"Insights" | "AI">("Insights");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -107,6 +130,12 @@ export const AIInsightsScreen = () => {
     `How do I save ${formatMoney(5000)} this month?`,
     "Break down my top 3 expense categories",
   ];
+
+  // Calculations for insights
+  const thisMonthExpenses = expenses.filter(e => new Date(e.date).getMonth() === new Date().getMonth() && (e.type === 'EXPENSE' || !e.type));
+  const largestExpense = thisMonthExpenses.sort((a, b) => b.amount - a.amount)[0];
+  const totalSpendMonth = thisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const categoryKeys = Object.keys(split).sort((a, b) => split[b] - split[a]);
 
   useEffect(() => {
     const isSunday = new Date().getDay() === 0;
@@ -165,9 +194,8 @@ export const AIInsightsScreen = () => {
   async function fixSpending() {
     addChatMessage({ role: "user", text: "Fix my spending" });
     setLoading(true);
-    const spend = monthlySpend(expenses);
-    const split = categorySpend(expenses);
-    const context = `Monthly budget: ${formatMoney(budget.monthlyLimit)}. Month spend: ${formatMoney(Math.round(spend))}. Category split: ${JSON.stringify(split)}. Top categories: ${JSON.stringify(top)}. Projected overshoot: ${formatMoney(stats.projectedOvershoot)}. Days left: ${stats.daysLeft}. Net Worth: ${formatMoney(netWorth)}.`;
+    setLoading(true);
+    const context = buildFinancialContext(budget);
     const prompt = "Provide a very short, highly actionable plan to fix my overspending. Mention specific amounts to cut from my top categories to recover the projected overshoot. Be concise.";
 
     try {
@@ -190,10 +218,9 @@ export const AIInsightsScreen = () => {
     if (!prompt.trim()) return;
     addChatMessage({ role: "user", text: prompt.trim() });
     setLoading(true);
+    setLoading(true);
     setQuery("");
-    const spend = monthlySpend(expenses);
-    const split = categorySpend(expenses);
-    const context = `Monthly budget: ${formatMoney(budget.monthlyLimit)}. Month spend: ${formatMoney(Math.round(spend))}. Category split: ${JSON.stringify(split)}. Net Worth: ${formatMoney(netWorth)}. Total Investments: ${investments.length}.`;
+    const context = buildFinancialContext(budget);
     try {
       const reply = await askGroq(prompt, context);
       addChatMessage({ role: "assistant", text: reply });
@@ -237,41 +264,105 @@ export const AIInsightsScreen = () => {
           <PressableScale style={styles.goalBtn} onPress={() => navigation.navigate("Goals")}>
             <Text style={styles.goalText}>◎ Goal Planner</Text>
           </PressableScale>
-          <PressableScale style={styles.historyToggle} onPress={() => setHistoryOpen((v) => !v)}>
-            <Text style={styles.historyToggleText}>{historyOpen ? "Hide History" : "History"}</Text>
-          </PressableScale>
-        </View>
-
-        {!isTyping && (
-          <>
-            <View style={styles.heroIcon}>
-              <MaterialCommunityIcons name="creation-outline" size={30} color={colors.primary} />
-            </View>
-            <Text style={styles.heroTitle}>Hi! I'm your AI Wealth Manager.</Text>
-            <Text style={styles.heroSub}>I monitor your net worth, goals, and spending. Ask me anything.</Text>
-            {suggestions.map((s) => (
-              <PressableScale key={s} style={styles.suggestion} onPress={() => submit(s)}>
-                <Text style={styles.suggestionText}>{s}</Text>
-              </PressableScale>
-            ))}
-            <PressableScale style={styles.fixButton} onPress={fixSpending}>
-              <Text style={styles.fixButtonText}>Fix my spending</Text>
+          {activeTab === "AI" && (
+            <PressableScale style={styles.historyToggle} onPress={() => setHistoryOpen((v) => !v)}>
+              <Text style={styles.historyToggleText}>{historyOpen ? "Hide History" : "History"}</Text>
             </PressableScale>
-          </>
-        )}
-
-        <View style={styles.chatThread}>
-          {aiHistory.map((msg) => (
-            <View key={msg.id} style={[styles.msg, msg.role === "user" ? styles.userMsg : styles.botMsg]}>
-              <Text style={styles.msgText}>{msg.text}</Text>
-            </View>
-          ))}
-          {loading && (
-            <View style={[styles.msg, styles.botMsg, { alignSelf: "flex-start", paddingHorizontal: 16 }]}>
-              <Text style={styles.msgText}>...</Text>
-            </View>
           )}
         </View>
+
+        <View style={styles.tabs}>
+          {["Insights", "AI"].map(t => (
+            <PressableScale key={t} style={[styles.tab, activeTab === t && styles.tabActive]} onPress={() => setActiveTab(t as any)}>
+              <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t === "AI" ? "AI Advisor" : "Visual Insights"}</Text>
+            </PressableScale>
+          ))}
+        </View>
+
+        {activeTab === "Insights" ? (
+          <View>
+            <View style={styles.card}>
+              <Text style={styles.cardHeader}>Spending by Category</Text>
+              {categoryKeys.slice(0, 5).map((cat, idx) => {
+                const amount = split[cat];
+                const pct = totalSpendMonth > 0 ? (amount / totalSpendMonth) * 100 : 0;
+                const barColors = [colors.primary, colors.healthy, colors.warning, colors.destructive, colors.text];
+                return (
+                  <View key={cat} style={{ marginBottom: Spacing.md }}>
+                    <View style={styles.barRow}>
+                      <Text style={styles.barLabel}>{cat}</Text>
+                      <Text style={styles.barValue}>{formatMoney(amount)}</Text>
+                    </View>
+                    <View style={styles.barTrack}>
+                      <View style={[styles.barFill, { width: `${Math.min(100, Math.max(2, pct))}%`, backgroundColor: barColors[idx % barColors.length] }]} />
+                    </View>
+                  </View>
+                );
+              })}
+              {categoryKeys.length === 0 && <Text style={{ color: colors.textSecondary }}>Not enough data.</Text>}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardHeader}>Week over Week</Text>
+              <Text style={{ color: colors.text, fontSize: FontSize.body, marginBottom: 8 }}>
+                This week: <Text style={{ fontWeight: "700" }}>{formatMoney(weekly.thisWeek)}</Text>
+              </Text>
+              <Text style={{ color: colors.text, fontSize: FontSize.body }}>
+                Last week: <Text style={{ fontWeight: "700" }}>{formatMoney(weekly.lastWeek)}</Text>
+              </Text>
+              
+              <View style={styles.insightBox}>
+                <Text style={styles.insightText}>
+                  {weekly.diffPct > 0 
+                    ? `You spent ${weekly.diffPct.toFixed(0)}% more this week.`
+                    : `Great job! You spent ${Math.abs(weekly.diffPct).toFixed(0)}% less this week.`}
+                </Text>
+              </View>
+            </View>
+
+            {largestExpense && (
+              <View style={styles.card}>
+                <Text style={styles.cardHeader}>Largest Expense this Month</Text>
+                <Text style={{ color: colors.text, fontSize: FontSize.subtitle, fontWeight: "700" }}>{largestExpense.name}</Text>
+                <Text style={{ color: colors.primary, fontSize: FontSize.subtitle, fontWeight: "800", marginTop: 4 }}>{formatMoney(largestExpense.amount)}</Text>
+                <Text style={{ color: colors.textTertiary, marginTop: 4 }}>{new Date(largestExpense.date).toLocaleDateString()}</Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <>
+            {!isTyping && (
+              <>
+                <View style={styles.heroIcon}>
+                  <MaterialCommunityIcons name="creation-outline" size={30} color={colors.primary} />
+                </View>
+                <Text style={styles.heroTitle}>Hi! I'm your AI Wealth Manager.</Text>
+                <Text style={styles.heroSub}>I monitor your net worth, goals, and spending. Ask me anything.</Text>
+                {suggestions.map((s) => (
+                  <PressableScale key={s} style={styles.suggestion} onPress={() => submit(s)}>
+                    <Text style={styles.suggestionText}>{s}</Text>
+                  </PressableScale>
+                ))}
+                <PressableScale style={styles.fixButton} onPress={fixSpending}>
+                  <Text style={styles.fixButtonText}>Fix my spending</Text>
+                </PressableScale>
+              </>
+            )}
+
+            <View style={styles.chatThread}>
+              {aiHistory.map((msg) => (
+                <View key={msg.id} style={[styles.msg, msg.role === "user" ? styles.userMsg : styles.botMsg]}>
+                  <Text style={styles.msgText}>{msg.text}</Text>
+                </View>
+              ))}
+              {loading && (
+                <View style={[styles.msg, styles.botMsg, { alignSelf: "flex-start", paddingHorizontal: 16 }]}>
+                  <Text style={styles.msgText}>...</Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <Modal visible={historyOpen} transparent animationType="fade" onRequestClose={() => setHistoryOpen(false)}>
@@ -323,20 +414,27 @@ export const AIInsightsScreen = () => {
         </View>
       </Modal>
 
-      <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <TextInput
-          style={styles.input}
-          placeholder="Ask about your spending..."
-          placeholderTextColor={colors.inputPlaceholder}
-          value={query}
-          onChangeText={setQuery}
-          onFocus={() => setIsTyping(true)}
-          multiline
-        />
-        <PressableScale style={[styles.send, loading && styles.sendDisabled]} onPress={() => submit(query)} disabled={loading}>
-          <MaterialCommunityIcons name="send-outline" size={22} color={colors.primaryText} />
-        </PressableScale>
-      </View>
+      {activeTab === "AI" && (
+        <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <View style={[styles.inputBar, { paddingBottom: 6 }]}>
+            <TextInput
+              style={styles.input}
+              placeholder="Ask about your spending..."
+              placeholderTextColor={colors.inputPlaceholder}
+              value={query}
+              onChangeText={setQuery}
+              onFocus={() => setIsTyping(true)}
+              multiline
+            />
+            <PressableScale style={[styles.send, loading && styles.sendDisabled]} onPress={() => submit(query)} disabled={loading}>
+              <MaterialCommunityIcons name="send-outline" size={22} color={colors.primaryText} />
+            </PressableScale>
+          </View>
+          <Text style={{ fontSize: 10, color: colors.textTertiary, textAlign: "center", paddingBottom: Math.max(insets.bottom, 10), paddingHorizontal: 20 }}>
+            {privacyNotice}
+          </Text>
+        </View>
+      )}
     </Wrapper>
   );
 };

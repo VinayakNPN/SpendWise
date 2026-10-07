@@ -48,7 +48,7 @@ export const AppStoreProvider = ({ children }: { children: React.ReactNode }) =>
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((raw) => {
+    AsyncStorage.getItem(KEY).then((raw: any) => {
       if (!raw) return;
       const parsed = JSON.parse(raw);
       setBudget(parsed.budget ?? defaultBudget);
@@ -69,18 +69,18 @@ export const AppStoreProvider = ({ children }: { children: React.ReactNode }) =>
       chatSessions,
       preferences,
       setBudget,
-      addChatMessage: (msg) =>
-        setAiHistory((prev) => [
+      addChatMessage: (msg: any) =>
+        setAiHistory((prev: any) => [
           ...prev,
           { ...msg, id: `${Date.now()}-${Math.random()}`, createdAt: new Date().toISOString() }
         ]),
       clearChatHistory: () => setAiHistory([]),
-      saveChatSession: (session) =>
-        setChatSessions((prev) => [
+      saveChatSession: (session: any) =>
+        setChatSessions((prev: any) => [
           { ...session, id: `${Date.now()}-${Math.random()}`, createdAt: new Date().toISOString() },
           ...prev
         ]),
-      deleteChatSession: (id) => setChatSessions((prev) => prev.filter((s) => s.id !== id)),
+      deleteChatSession: (id: any) => setChatSessions((prev: any) => prev.filter((s: any) => s.id !== id)),
       clearAllSessions: () => setChatSessions([]),
       setPreferences
     }),

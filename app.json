@@ -15,10 +15,26 @@
       "backgroundColor": "#0F1A17"
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-image-picker"
     ],
     "android": {
-      "package": "com.vinayak_52.spendwise"
+      "package": "com.vinayak_52.spendwise",
+      "intentFilters": [
+        {
+          "action": "android.intent.action.SEND",
+          "autoVerify": true,
+          "data": [
+            { "mimeType": "image/*" },
+            { "mimeType": "image/png" },
+            { "mimeType": "image/jpeg" }
+          ],
+          "category": [
+            "android.intent.category.DEFAULT",
+            "android.intent.category.BROWSABLE"
+          ]
+        }
+      ]
     },
     "ios": {
       "bundleIdentifier": "n",

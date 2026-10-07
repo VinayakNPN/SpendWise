@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, BackHandler } from "react-native";
 import { MaterialCommunityIcons, Feather, Ionicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -9,6 +9,7 @@ import { useAppStore } from "../state/AppStore";
 import { formatInputMoney, parseInputMoney } from "../utils/finance";
 import { useFinance } from "../utils/useFinance";
 import { exportDatabaseToJSON } from "../services/database";
+import { pickAndRestoreBackup } from "../services/backup";
 import { useCategoriesQuery, useAddCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation, useIncomesQuery, useAddIncomeMutation, useDeleteIncomeMutation, useAccountsQuery, useAddAccountMutation, useDeleteAccountMutation, useUpdateAccountMutation } from "../state/queries";
 import { PressableScale } from "../components/PressableScale";
 import { useTheme } from "../state/ThemeContext";
@@ -108,7 +109,25 @@ export const SettingsScreen = () => {
   const [newIncAmount, setNewIncAmount] = useState("");
   const [newIncRecurring, setNewIncRecurring] = useState(false);
 
+  type Section = 'main' | 'money' | 'planning' | 'security' | 'data' | 'appearance';
+  const [activeSection, setActiveSection] = useState<Section>('main');
 
+  useEffect(() => {
+    const backAction = () => {
+      if (activeSection !== 'main') {
+        setActiveSection('main');
+        return true; // Prevent default behavior
+      }
+      return false; // Allow default behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [activeSection]);
 
   const totalIncome = budget.monthlyIncome || 0;
   const totalExtraIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
@@ -183,205 +202,243 @@ export const SettingsScreen = () => {
     }
   };
 
+  const handleImportData = async () => {
+    const success = await pickAndRestoreBackup();
+    if (success) {
+      // Force refresh data in UI if needed, or rely on restart
+    }
+  };
+
+  const renderSectionHeader = (title: string) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg }}>
+      <PressableScale onPress={() => setActiveSection('main')} style={{ paddingRight: Spacing.md }}>
+        <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+      </PressableScale>
+      <Text style={styles.title}>{title}</Text>
+    </View>
+  );
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 14), paddingBottom: Math.max(insets.bottom, 50) }]} keyboardShouldPersistTaps="handled">
-      <Text style={styles.section}>PREFERENCES</Text>
-      <Text style={styles.title}>Settings</Text>
+      {activeSection === 'main' && (
+        <View>
+          <Text style={styles.section}>PREFERENCES</Text>
+          <Text style={styles.title}>Settings</Text>
 
-      {/* --- THEME SELECTOR --- */}
-      <Text style={styles.labelMain}>Appearance</Text>
-      <View style={styles.themeRow}>
-        <PressableScale
-          style={[styles.themeOption, mode === "light" && styles.themeOptionActive]}
-          onPress={() => setMode("light")}
-        >
-          <Ionicons name="sunny-outline" size={24} color={mode === "light" ? colors.primary : colors.textSecondary} />
-          <Text style={[styles.themeOptionText, mode === "light" && styles.themeOptionTextActive]}>Light</Text>
-        </PressableScale>
-        
-        <PressableScale
-          style={[styles.themeOption, mode === "dark" && styles.themeOptionActive]}
-          onPress={() => setMode("dark")}
-        >
-          <Ionicons name="moon-outline" size={24} color={mode === "dark" ? colors.primary : colors.textSecondary} />
-          <Text style={[styles.themeOptionText, mode === "dark" && styles.themeOptionTextActive]}>Dark</Text>
-        </PressableScale>
-        
-        <PressableScale
-          style={[styles.themeOption, mode === "system" && styles.themeOptionActive]}
-          onPress={() => setMode("system")}
-        >
-          <Ionicons name="phone-portrait-outline" size={24} color={mode === "system" ? colors.primary : colors.textSecondary} />
-          <Text style={[styles.themeOptionText, mode === "system" && styles.themeOptionTextActive]}>System</Text>
-        </PressableScale>
-      </View>
+          <PressableScale onPress={() => setActiveSection('money')} style={styles.prefRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="wallet-outline" size={22} color={colors.primary} style={{ marginRight: 12 }} />
+              <Text style={styles.prefLabel}>Money & Budget</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </PressableScale>
 
-      <Text style={[styles.labelMain, { marginTop: 10 }]}>Income & Cycle</Text>
-      <View style={{ flexDirection: "row", gap: 12 }}>
-        <View style={{ flex: 2 }}>
-          <Text style={styles.labelMain}>Monthly Income</Text>
-          <View style={[styles.bigInputWrap, { paddingHorizontal: 12 }]}>
-            <Text style={styles.currency}>₹</Text>
-            <TextInput
-              style={styles.bigInput}
-              keyboardType="numeric"
-              value={formatInputMoney(budget.monthlyIncome || 0)}
-              placeholder="50,000"
-              placeholderTextColor={colors.inputPlaceholder}
-              onChangeText={(value) => setBudget({ ...budget, monthlyIncome: Number(parseInputMoney(value) || 0) })}
-            />
-          </View>
-        </View>
+          <PressableScale onPress={() => setActiveSection('planning')} style={styles.prefRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="chart-timeline-variant" size={22} color={colors.primary} style={{ marginRight: 12 }} />
+              <Text style={styles.prefLabel}>Planning & Debt</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </PressableScale>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.labelMain}>Paycheck</Text>
-          <View style={[styles.bigInputWrap, { paddingHorizontal: 12 }]}>
-            <TextInput
-              style={styles.bigInput}
-              keyboardType="numeric"
-              value={budget.paycheckDate ? String(budget.paycheckDate) : ""}
-              placeholder="e.g. 7"
-              placeholderTextColor={colors.inputPlaceholder}
-              onChangeText={(value) => setBudget({ ...budget, paycheckDate: Number(value || "1") })}
-            />
-          </View>
-        </View>
-      </View>
+          <PressableScale onPress={() => setActiveSection('security')} style={styles.prefRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="shield-lock-outline" size={22} color={colors.primary} style={{ marginRight: 12 }} />
+              <Text style={styles.prefLabel}>Security & Privacy</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </PressableScale>
 
-      <View style={{ marginTop: 16 }}>
-        <Text style={styles.labelMain}>Monthly Budget</Text>
-        <View style={styles.bigInputWrap}>
-          <Text style={styles.currency}>₹</Text>
-          <TextInput
-            style={styles.bigInput}
-            keyboardType="numeric"
-            value={formatInputMoney(budget.monthlyLimit || 0)}
-            placeholder="e.g. 30,000"
-            placeholderTextColor={colors.inputPlaceholder}
-            onChangeText={(value) => setBudget({ ...budget, monthlyLimit: Number(parseInputMoney(value) || 0) })}
-          />
-        </View>
-        <Text style={styles.help}>Your actual target spending limit. This drives your dashboard rings.</Text>
-      </View>
+          <PressableScale onPress={() => setActiveSection('data')} style={styles.prefRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="database-outline" size={22} color={colors.primary} style={{ marginRight: 12 }} />
+              <Text style={styles.prefLabel}>Data Management</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </PressableScale>
 
-      {/* --- EXTRA INCOMES --- */}
-      <View style={styles.headerRow}>
-        <Text style={styles.labelMain}>Extra Incomes (Side Hustles)</Text>
-        <PressableScale onPress={() => setShowIncomeModal(true)}>
-          <Text style={styles.addText}>+ Log Income</Text>
-        </PressableScale>
-      </View>
-      {incomes.map(inc => (
-        <View key={inc.id} style={styles.row}>
-          <View style={[styles.iconWrap, { backgroundColor: colors.successMuted }]}>
-            <MaterialCommunityIcons name="cash-plus" size={18} color={colors.success} />
-          </View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.catText}>{inc.source}</Text>
-            <Text style={{ fontSize: 12, color: colors.textSecondary }}>{inc.date.slice(0,10)} {inc.is_recurring ? "🔄" : ""}</Text>
-          </View>
-          <Text style={{ fontWeight: "700", color: colors.success }}>+{formatMoney(inc.amount)}</Text>
-          <PressableScale onPress={() => deleteIncome(inc.id)} style={{ paddingLeft: 10 }}>
-            <Feather name="trash-2" size={16} color={colors.textTertiary} />
+          <PressableScale onPress={() => setActiveSection('appearance')} style={styles.prefRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="palette-outline" size={22} color={colors.primary} style={{ marginRight: 12 }} />
+              <Text style={styles.prefLabel}>Appearance</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
           </PressableScale>
         </View>
-      ))}
-      <Text style={styles.help}>Track side hustles, bonuses, and gifts.</Text>
+      )}
 
-      {/* --- ACCOUNTS --- */}
-      <View style={styles.headerRow}>
-        <Text style={styles.labelMain}>Accounts & Balances</Text>
-      </View>
-      <PressableScale onPress={() => navigation.navigate("Accounts")} style={{ backgroundColor: colors.cardBackground, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1, borderColor: colors.cardBorder, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ color: colors.text, fontSize: FontSize.body, fontWeight: "600" }}>Manage Accounts</Text>
-        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
-      </PressableScale>
-      <Text style={styles.help}>Manage checking, savings, wallets, and track your balances.</Text>
-
-      <View style={styles.headerRow}>
-        <Text style={styles.labelMain}>Category Budgets</Text>
-        <PressableScale onPress={() => setShowModal(true)}>
-          <Text style={styles.addText}>+ Add</Text>
-        </PressableScale>
-      </View>
-
-      <View style={styles.budgetStatus}>
-        <Text style={styles.statusText}>Allocated: {formatMoney(totalAllocated)} / {formatMoney(overallIncome)}</Text>
-        <Text style={[styles.statusText, { color: unallocated < 0 ? colors.destructive : colors.success }]}>
-          {unallocated >= 0 ? `Unallocated: ${formatMoney(unallocated)}` : `Over-budget: ${formatMoney(Math.abs(unallocated))}`}
-        </Text>
-        <PressableScale style={styles.autoSplitBtn} onPress={handleAutoSplit}>
-          <Text style={styles.autoSplitText}>Auto-Split Remaining</Text>
-        </PressableScale>
-      </View>
-
-      {categories.map((cat) => (
-        <View key={cat.id} style={styles.row}>
-          <View style={[styles.iconWrap, { backgroundColor: cat.color + (isDark ? "30" : "20") }]}>
-            <MaterialCommunityIcons name={cat.icon as any} size={18} color={cat.color} />
+      {activeSection === 'appearance' && (
+        <View>
+          {renderSectionHeader('Appearance')}
+          <Text style={styles.labelMain}>Theme</Text>
+          <View style={styles.themeRow}>
+            <PressableScale style={[styles.themeOption, mode === "light" && styles.themeOptionActive]} onPress={() => setMode("light")}>
+              <Ionicons name="sunny-outline" size={24} color={mode === "light" ? colors.primary : colors.textSecondary} />
+              <Text style={[styles.themeOptionText, mode === "light" && styles.themeOptionTextActive]}>Light</Text>
+            </PressableScale>
+            <PressableScale style={[styles.themeOption, mode === "dark" && styles.themeOptionActive]} onPress={() => setMode("dark")}>
+              <Ionicons name="moon-outline" size={24} color={mode === "dark" ? colors.primary : colors.textSecondary} />
+              <Text style={[styles.themeOptionText, mode === "dark" && styles.themeOptionTextActive]}>Dark</Text>
+            </PressableScale>
+            <PressableScale style={[styles.themeOption, mode === "system" && styles.themeOptionActive]} onPress={() => setMode("system")}>
+              <Ionicons name="phone-portrait-outline" size={24} color={mode === "system" ? colors.primary : colors.textSecondary} />
+              <Text style={[styles.themeOptionText, mode === "system" && styles.themeOptionTextActive]}>System</Text>
+            </PressableScale>
           </View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.catText}>{cat.name} {cat.is_fixed ? "📌" : ""}</Text>
+          <View style={[styles.prefRow, { marginTop: 20 }]}>
+            <Text style={styles.prefLabel}>Compact mode</Text>
+            <Switch value={preferences.compactMode} onValueChange={(value) => setPreferences({ ...preferences, compactMode: value })} trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }} thumbColor={colors.switchThumb} />
           </View>
-          <View style={styles.valueWrap}>
-            <Text style={styles.valueCurrency}>₹</Text>
-            <TextInput
-              style={styles.valueInput}
-              keyboardType="numeric"
-              value={formatInputMoney(cat.monthly_limit || 0)}
-              onChangeText={(val) => updateCategory({ id: cat.id, patch: { monthly_limit: Number(parseInputMoney(val) || 0) } })}
-            />
+        </View>
+      )}
+
+      {activeSection === 'money' && (
+        <View>
+          {renderSectionHeader('Money & Budget')}
+          
+          <PressableScale onPress={() => navigation.navigate("Accounts")} style={styles.prefRow}>
+            <Text style={styles.prefLabel}>Manage Accounts</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </PressableScale>
+
+          <Text style={[styles.labelMain, { marginTop: 16 }]}>Income & Cycle</Text>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flex: 2 }}>
+              <Text style={styles.labelMain}>Monthly Income</Text>
+              <View style={[styles.bigInputWrap, { paddingHorizontal: 12 }]}>
+                <Text style={styles.currency}>₹</Text>
+                <TextInput style={styles.bigInput} keyboardType="numeric" value={formatInputMoney(budget.monthlyIncome || 0)} placeholder="50,000" placeholderTextColor={colors.inputPlaceholder} onChangeText={(value) => setBudget({ ...budget, monthlyIncome: Number(parseInputMoney(value) || 0) })} />
+              </View>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.labelMain}>Paycheck</Text>
+              <View style={[styles.bigInputWrap, { paddingHorizontal: 12 }]}>
+                <TextInput style={styles.bigInput} keyboardType="numeric" value={budget.paycheckDate ? String(budget.paycheckDate) : ""} placeholder="e.g. 7" placeholderTextColor={colors.inputPlaceholder} onChangeText={(value) => setBudget({ ...budget, paycheckDate: Number(value || "1") })} />
+              </View>
+            </View>
           </View>
-          <PressableScale onPress={() => deleteCategory(cat.id)} style={{ paddingLeft: 10 }}>
-            <Feather name="trash-2" size={16} color={colors.textTertiary} />
+
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.labelMain}>Monthly Budget</Text>
+            <View style={styles.bigInputWrap}>
+              <Text style={styles.currency}>₹</Text>
+              <TextInput style={styles.bigInput} keyboardType="numeric" value={formatInputMoney(budget.monthlyLimit || 0)} placeholder="e.g. 30,000" placeholderTextColor={colors.inputPlaceholder} onChangeText={(value) => setBudget({ ...budget, monthlyLimit: Number(parseInputMoney(value) || 0) })} />
+            </View>
+            <Text style={styles.help}>Your actual target spending limit. This drives your dashboard rings.</Text>
+          </View>
+
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.labelMain}>Daily Spending Limit</Text>
+            <View style={styles.bigInputWrap}>
+              <Text style={styles.currency}>₹</Text>
+              <TextInput style={styles.bigInput} keyboardType="numeric" value={formatInputMoney(preferences.dailyLimit || 0)} placeholder="e.g. 800" placeholderTextColor={colors.inputPlaceholder} onChangeText={(value) => setPreferences({ ...preferences, dailyLimit: Number(parseInputMoney(value) || 0) })} />
+            </View>
+            <Text style={styles.help}>Limit your daily expenses (excluding transfers/investments/incomes).</Text>
+          </View>
+
+          <View style={[styles.headerRow, { marginTop: 24 }]}>
+            <Text style={styles.labelMain}>Category Budgets</Text>
+            <PressableScale onPress={() => setShowModal(true)}><Text style={styles.addText}>+ Add</Text></PressableScale>
+          </View>
+
+          <View style={styles.budgetStatus}>
+            <Text style={styles.statusText}>Allocated: {formatMoney(totalAllocated)} / {formatMoney(overallIncome)}</Text>
+            <Text style={[styles.statusText, { color: unallocated < 0 ? colors.destructive : colors.success }]}>
+              {unallocated >= 0 ? `Unallocated: ${formatMoney(unallocated)}` : `Over-budget: ${formatMoney(Math.abs(unallocated))}`}
+            </Text>
+            <PressableScale style={styles.autoSplitBtn} onPress={handleAutoSplit}>
+              <Text style={styles.autoSplitText}>Auto-Split Remaining</Text>
+            </PressableScale>
+          </View>
+
+          {categories.map((cat) => (
+            <View key={cat.id} style={styles.row}>
+              <View style={[styles.iconWrap, { backgroundColor: cat.color + (isDark ? "30" : "20") }]}><MaterialCommunityIcons name={cat.icon as any} size={18} color={cat.color} /></View>
+              <View style={{ flex: 1, marginLeft: 10 }}><Text style={styles.catText}>{cat.name} {cat.is_fixed ? "📌" : ""}</Text></View>
+              <View style={styles.valueWrap}>
+                <Text style={styles.valueCurrency}>₹</Text>
+                <TextInput style={styles.valueInput} keyboardType="numeric" value={formatInputMoney(cat.monthly_limit || 0)} onChangeText={(val) => updateCategory({ id: cat.id, patch: { monthly_limit: Number(parseInputMoney(val) || 0) } })} />
+              </View>
+              <PressableScale onPress={() => deleteCategory(cat.id)} style={{ paddingLeft: 10 }}><Feather name="trash-2" size={16} color={colors.textTertiary} /></PressableScale>
+            </View>
+          ))}
+          
+          <View style={[styles.headerRow, { marginTop: 24 }]}>
+            <Text style={styles.labelMain}>Extra Incomes</Text>
+            <PressableScale onPress={() => setShowIncomeModal(true)}><Text style={styles.addText}>+ Log</Text></PressableScale>
+          </View>
+          {incomes.map(inc => (
+            <View key={inc.id} style={styles.row}>
+              <View style={[styles.iconWrap, { backgroundColor: colors.successMuted }]}><MaterialCommunityIcons name="cash-plus" size={18} color={colors.success} /></View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.catText}>{inc.source}</Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary }}>{inc.date.slice(0,10)} {inc.is_recurring ? "🔄" : ""}</Text>
+              </View>
+              <Text style={{ fontWeight: "700", color: colors.success }}>+{formatMoney(inc.amount)}</Text>
+              <PressableScale onPress={() => deleteIncome(inc.id)} style={{ paddingLeft: 10 }}><Feather name="trash-2" size={16} color={colors.textTertiary} /></PressableScale>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {activeSection === 'planning' && (
+        <View>
+          {renderSectionHeader('Planning & Debt')}
+          
+          <PressableScale onPress={() => navigation.navigate("Debt")} style={[styles.prefRow, { marginTop: 10 }]}>
+            <Text style={styles.prefLabel}>Debt Tracker</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </PressableScale>
+          
+          <PressableScale onPress={() => navigation.navigate("PF")} style={styles.prefRow}>
+            <Text style={styles.prefLabel}>Provident Fund (PF)</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </PressableScale>
+          
+          <PressableScale onPress={() => navigation.navigate("DashboardHome", { screen: 'RecurringPayments' })} style={styles.prefRow}>
+            <Text style={styles.prefLabel}>Recurring Payments</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
           </PressableScale>
         </View>
-      ))}
+      )}
 
-      <Text style={[styles.labelMain, { marginTop: 20 }]}>Basic preferences</Text>
-      <View style={styles.prefRow}>
-        <Text style={styles.prefLabel}>Daily reminder</Text>
-        <Switch
-          value={preferences.dailyReminder}
-          onValueChange={(value) => setPreferences({ ...preferences, dailyReminder: value })}
-          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
-          thumbColor={colors.switchThumb}
-        />
-      </View>
-      <View style={styles.prefRow}>
-        <Text style={styles.prefLabel}>Compact mode</Text>
-        <Switch
-          value={preferences.compactMode}
-          onValueChange={(value) => setPreferences({ ...preferences, compactMode: value })}
-          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
-          thumbColor={colors.switchThumb}
-        />
-      </View>
-      <View style={styles.prefRow}>
-        <Text style={styles.prefLabel}>Biometric App Lock</Text>
-        <Switch
-          value={preferences.biometricLock}
-          onValueChange={(value) => setPreferences({ ...preferences, biometricLock: value })}
-          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
-          thumbColor={colors.switchThumb}
-        />
-      </View>
+      {activeSection === 'security' && (
+        <View>
+          {renderSectionHeader('Security & Privacy')}
+          <View style={styles.prefRow}>
+            <Text style={styles.prefLabel}>Global Privacy Mode</Text>
+            <Switch value={preferences.isPrivacyEnabled} onValueChange={(value) => setPreferences({ ...preferences, isPrivacyEnabled: value })} trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }} thumbColor={colors.switchThumb} />
+          </View>
+          <View style={styles.prefRow}>
+            <Text style={styles.prefLabel}>Biometric App Lock</Text>
+            <Switch value={preferences.biometricLock} onValueChange={(value) => setPreferences({ ...preferences, biometricLock: value })} trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }} thumbColor={colors.switchThumb} />
+          </View>
+        </View>
+      )}
 
-      <View style={styles.headerRow}>
-        <Text style={styles.labelMain}>Data Management</Text>
-      </View>
-      <View style={styles.row}>
-        <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated }]}>
-          <MaterialCommunityIcons name="database-export" size={18} color={colors.textSecondary} />
+      {activeSection === 'data' && (
+        <View>
+          {renderSectionHeader('Data Management')}
+          <View style={styles.row}>
+            <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated }]}><MaterialCommunityIcons name="database-export" size={18} color={colors.textSecondary} /></View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.catText}>Export Data</Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>Backup your entire database</Text>
+            </View>
+            <PressableScale onPress={handleExportData} style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}>
+               <Text style={{ color: colors.primaryText, fontWeight: "700" }}>Export</Text>
+            </PressableScale>
+          </View>
+          
+          <PressableScale onPress={handleImportData} style={[styles.row, { marginTop: 10 }]}>
+            <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated }]}><MaterialCommunityIcons name="database-import" size={18} color={colors.textSecondary} /></View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.catText}>Import Data</Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>Restore from a JSON file</Text>
+            </View>
+          </PressableScale>
         </View>
-        <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={styles.catText}>Export Data</Text>
-          <Text style={{ fontSize: 12, color: colors.textSecondary }}>Backup your entire database as a JSON file</Text>
-        </View>
-        <PressableScale onPress={handleExportData} style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}>
-           <Text style={{ color: colors.primaryText, fontWeight: "700" }}>Export</Text>
-        </PressableScale>
-      </View>
+      )}
 
       <Modal visible={showModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
