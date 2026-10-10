@@ -6,7 +6,7 @@ export const calculateAccountBalance = (account: Account, transactions: Expense[
   let balance = account.opening_balance ?? account.balance ?? 0;
   for (const t of transactions) {
     if (t.type === 'TRANSFER') {
-      if (t.from_account_id === account.id) balance -= t.amount;
+      if (t.from_account_id === account.id || t.account_id === account.id) balance -= t.amount;
       if (t.to_account_id === account.id) balance += t.amount;
     } else if (t.type === 'INCOME' || t.type === 'REFUND') {
       if (t.account_id === account.id || t.to_account_id === account.id) balance += t.amount;
@@ -22,7 +22,7 @@ export const calculateGoalProgress = (goalId: string, accountId: string | undefi
   const targetId = accountId || goalId; // Fallback to goalId as a pseudo-account if no real account is linked
   return transactions.reduce((acc, t) => {
     if ((t.type === 'TRANSFER' || t.type === 'INVESTMENT_CONTRIBUTION') && t.to_account_id === targetId) return acc + t.amount;
-    if ((t.type === 'TRANSFER' || t.type === 'INVESTMENT_WITHDRAWAL') && t.from_account_id === targetId) return acc - t.amount;
+    if ((t.type === 'TRANSFER' || t.type === 'INVESTMENT_WITHDRAWAL') && (t.from_account_id === targetId || t.account_id === targetId)) return acc - t.amount;
     return acc;
   }, 0);
 };
@@ -31,7 +31,7 @@ export const calculateGoalProgress = (goalId: string, accountId: string | undefi
  * Current net worth = actual cash + actual invested amounts − outstanding debt
  * Projected future value is NOT included (per spec: "Current net worth ≠ projected future wealth")
  */
-export const calculateNetWorth = (accounts: Account[], goals: Goal[], investments: Investment[], incomes: Income[] = [], transactions: Expense[] = [], preferences?: UserPreferences) => {
+export const calculateNetWorth = (accounts: Account[], goals: Goal[], investments: Investment[], incomes: Income[] = [], transactions: Expense[] = [], preferences?: UserPreferences, debts: any[] = []) => {
   // Real account balances derived from transactions
   const accountsTotal = accounts.reduce((sum, acc) => sum + calculateAccountBalance(acc, transactions), 0);
   
@@ -52,15 +52,19 @@ export const calculateNetWorth = (accounts: Account[], goals: Goal[], investment
 
   const assets = accountsTotal + investmentsActual + pfBalance;
   
-  // Outstanding debt (goals marked as debt with remaining balance)
-  const liabilities = goals
-    .filter(g => g.isDebt && !g.completed)
+  // Explicit debts
+  const explicitDebtsTotal = debts.reduce((sum, d) => sum + (d.outstanding || 0), 0);
+
+  // Goal liabilities (all active goals)
+  const goalLiabilities = goals
+    .filter(g => !g.completed)
     .reduce((sum, g) => {
       const saved = calculateGoalProgress(g.id, g.account_id, transactions);
       return sum + Math.max(0, g.targetAmount - saved);
     }, 0);
     
-  return { netWorth: assets - liabilities, assets, liabilities, accountsTotal, investmentsActual, pfBalance };
+  const liabilities = goalLiabilities + explicitDebtsTotal;
+  return { netWorth: assets - liabilities, assets, liabilities, accountsTotal, investmentsActual, pfBalance, explicitDebtsTotal, goalLiabilities };
 };
 
 export const formatMoney = (val: number | string | undefined | null, isPrivacyEnabled: boolean = false) => {

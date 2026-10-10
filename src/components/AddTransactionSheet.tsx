@@ -130,7 +130,7 @@ export const AddTransactionSheet = ({ visible, onClose, initialData }: AddTransa
         setName(initialData.name);
         setAmount(String(initialData.amount));
         setCategory(initialData.category);
-        setAccountId(initialData.account_id || "");
+        setAccountId(initialData.from_account_id || initialData.account_id || "");
         setToAccountId(initialData.to_account_id || "");
       } else {
         setType("EXPENSE");
@@ -214,7 +214,8 @@ export const AddTransactionSheet = ({ visible, onClose, initialData }: AddTransa
       type,
       category: type === "TRANSFER" ? "Transfer" : category,
       date: initialData?.date || new Date().toISOString(),
-      account_id: accountId || undefined,
+      account_id: type === "TRANSFER" ? undefined : (accountId || undefined),
+      from_account_id: type === "TRANSFER" ? (accountId || undefined) : undefined,
       to_account_id: type === "TRANSFER" ? (toAccountId || undefined) : undefined,
       merchant_name: type === "EXPENSE" ? txName : undefined,
     };
@@ -248,7 +249,7 @@ export const AddTransactionSheet = ({ visible, onClose, initialData }: AddTransa
                   {["EXPENSE", "INCOME", "TRANSFER"].map(t => (
                     <PressableScale key={t} style={[styles.tab, type === t && styles.tabActive]} onPress={() => setType(t as any)}>
                       <Text style={[styles.tabText, type === t && styles.tabTextActive]}>
-                        {t.charAt(0) + t.slice(1).toLowerCase()}
+                        {t === "TRANSFER" ? "Self Transfer" : t.charAt(0) + t.slice(1).toLowerCase()}
                       </Text>
                     </PressableScale>
                   ))}

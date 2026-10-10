@@ -9,6 +9,12 @@
 
   <br />
 
+  <a href="https://github.com/VinayakNPN/SpendWise/raw/main/SpendWise.apk">
+    <img src="https://img.shields.io/badge/Download-Android_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  </a>
+
+  <br /><br />
+
   <a href="#features">Features</a>
   <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
   <a href="#tech-stack">Tech Stack</a>
@@ -27,35 +33,53 @@
 <table>
   <tr>
     <td width="50%">
-      <h3>Smart Dashboard</h3>
-      <p>A high-level overview of your net worth, monthly spending, and budget health at a glance.</p>
+      <h3>Smart Dashboard & Net Worth</h3>
+      <p>A high-level overview of your net worth, monthly spending, and budget health at a glance. Dive deep into a detailed breakdown of your Assets vs. Liabilities.</p>
     </td>
     <td width="50%">
-      <h3>Expense Tracking</h3>
-      <p>Seamlessly record income and expenses with categorized entries and persistent SQLite storage.</p>
+      <h3>Expense & Income Tracking</h3>
+      <p>Seamlessly record income and expenses with categorized entries, rich natural language parsing (e.g. "Swiggy 340"), and persistent SQLite storage.</p>
     </td>
   </tr>
   <tr>
     <td width="50%">
-      <h3>Goal Planner</h3>
-      <p>Define your financial milestones—whether it is a new home, a car, or an emergency fund—and track your progress in real-time.</p>
+      <h3>Multi-Account & Transfers</h3>
+      <p>Manage multiple accounts (Banks, Wallets, UPI Lite). Effortlessly log <b>Self Transfers</b> to move money between accounts without messing up your expense metrics.</p>
     </td>
     <td width="50%">
       <h3>Investment Portfolio</h3>
-      <p>Manage your assets and calculate potential returns with built-in investment projection calculators.</p>
+      <p>Manage your assets and calculate potential returns with built-in investment projection calculators. Track your SIPs, FDs, Step-up SIPs, and Mutual Funds.</p>
     </td>
   </tr>
   <tr>
+    <td width="50%">
+      <h3>Goal Planner & Debt Manager</h3>
+      <p>Define your financial milestones—whether it is a new home or an emergency fund. Track debts separately to see your true financial liabilities reduce over time.</p>
+    </td>
     <td width="50%">
       <h3>AI Financial Coach</h3>
       <p>Get personalized, actionable financial advice powered by <strong>Groq AI (Llama 3.3)</strong>. Ask questions about your spending habits or get tips on saving.</p>
     </td>
+  </tr>
+  <tr>
     <td width="50%">
       <h3>Privacy First & Smart Alerts</h3>
-      <p>All sensitive financial data is stored locally on your device. Never miss a bill or overspend with integrated local notifications.</p>
+      <p>All sensitive financial data is stored locally on your device. Never miss a bill or overspend with integrated local push notifications for budget limits.</p>
+    </td>
+    <td width="50%">
+      <h3>Beautiful UI & Dark Mode</h3>
+      <p>A stunning, fluid interface built with React Native Reanimated. Features full support for Light and Dark modes customized to your preference.</p>
     </td>
   </tr>
 </table>
+
+### Even More Features
+- **Natural Language Parsing**: Add transactions by typing naturally (e.g. "Groceries 150").
+- **Smart Merchant Suggestions**: Auto-categorizes based on your previous spending history.
+- **Dynamic PF Calculator**: Track your Provident Fund growth with custom employer configurations.
+- **Category Budgets & Alerts**: Set strict monthly limits and receive push warnings when you hit 70%, 90%, and 100% of your threshold.
+- **Advanced Filtering**: Search by date ranges, specific banks, or transaction types.
+- **Offline First**: Works flawlessly without an internet connection (AI advisor requires internet).
 
 <br />
 
@@ -112,12 +136,13 @@ npx expo start
 
 <pre>
 SpendWise/
+├── SpendWise.apk      # Ready-to-install Android Application
 ├── src/
-│   ├── components/    # Reusable UI components (FadeInView, GoalPlanner, etc.)
-│   ├── screens/       # Main application screens (Dashboard, Expenses, AI Insights, etc.)
-│   ├── services/      # Business logic (SQLite database, AI integration, Notifications)
-│   ├── state/         # App state management and types
-│   └── utils/         # Helper functions for finance and investment calculations
+│   ├── components/    # Reusable UI components (AddTransactionSheet, FadeInView, etc.)
+│   ├── screens/       # Main application screens (Dashboard, AI Insights, Investments, etc.)
+│   ├── services/      # Business logic (SQLite database, Groq AI integration, Notifications)
+│   ├── state/         # App state management, ThemeContext, and queries
+│   └── utils/         # Helper functions for finance algorithms and projections
 ├── App.tsx            # Main application entry point & navigation
 ├── app.json           # Expo configuration
 └── package.json       # Project dependencies and scripts

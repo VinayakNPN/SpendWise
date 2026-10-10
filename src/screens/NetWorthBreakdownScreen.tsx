@@ -52,7 +52,7 @@ export const NetWorthBreakdownScreen = () => {
   const { data: expenses = [] } = useExpensesQuery();
   const { data: debts = [] } = useDebtsQuery();
 
-  const { netWorth, assets, liabilities, accountsTotal, investmentsActual, pfBalance } = calculateNetWorth(accounts, goals, investments, [], expenses, preferences);
+  const { netWorth, assets, liabilities, accountsTotal, investmentsActual, pfBalance, explicitDebtsTotal: calcExplicitDebts, goalLiabilities } = calculateNetWorth(accounts, goals, investments, [], expenses, preferences, debts);
 
   // Group accounts
   const bankAccounts = accounts.filter(a => a.type === 'BANK' || a.type === 'SAVINGS' || a.type === 'EMERGENCY_FUND');
@@ -62,7 +62,7 @@ export const NetWorthBreakdownScreen = () => {
   const cashTotal = cashAccounts.reduce((sum, a) => sum + calculateAccountBalance(a, expenses), 0);
 
   // Debts
-  const explicitDebtsTotal = debts.reduce((sum, d) => sum + d.outstanding, 0);
+  const explicitDebtsTotal = calcExplicitDebts || debts.reduce((sum, d) => sum + d.outstanding, 0);
 
   return (
     <View style={styles.root}>
@@ -149,7 +149,7 @@ export const NetWorthBreakdownScreen = () => {
               <Text style={styles.name}>Other Liabilities (Goals)</Text>
               <Text style={styles.subText}>from goal planner</Text>
             </View>
-            <Text style={styles.value}>{formatMoney(liabilities - explicitDebtsTotal)}</Text>
+            <Text style={styles.value}>{formatMoney(goalLiabilities)}</Text>
           </View>
         </PressableScale>
 

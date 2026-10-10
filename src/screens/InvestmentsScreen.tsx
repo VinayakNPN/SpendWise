@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { format, parse } from "date-fns";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useAppStore } from "../state/AppStore";
-import { useInvestmentsQuery, useAddInvestmentMutation, useDeleteInvestmentMutation, useAccountsQuery, useGoalsQuery, useIncomesQuery, useExpensesQuery } from "../state/queries";
+import { useInvestmentsQuery, useAddInvestmentMutation, useDeleteInvestmentMutation, useAccountsQuery, useGoalsQuery, useIncomesQuery, useExpensesQuery, useDebtsQuery } from "../state/queries";
 import { calculateInvestmentProjections, getInvestableSurplus } from "../utils/investmentCalc";
 import { calculateNetWorth, formatInputMoney, parseInputMoney } from "../utils/finance";
 import { useFinance } from "../utils/useFinance";
@@ -87,6 +87,7 @@ export const InvestmentsScreen = () => {
   const { data: accounts = [] } = useAccountsQuery();
   const { data: goals = [] } = useGoalsQuery();
   const { data: incomes = [] } = useIncomesQuery();
+  const { data: debts = [] } = useDebtsQuery();
   const { colors, isDark } = useTheme();
   const { formatMoney } = useFinance();
 
@@ -139,7 +140,7 @@ export const InvestmentsScreen = () => {
   const totalProjectedFv = projectedInvestments.reduce((acc, inv) => acc + inv.projectedFv, 0);
   const totalProjectedReturns = totalProjectedFv - totalProjectedInvested;
 
-  const { netWorth, assets, liabilities, accountsTotal, investmentsActual, pfBalance } = calculateNetWorth(accounts, goals, projectedInvestments, incomes, expenses, preferences);
+  const { netWorth, assets, liabilities, accountsTotal, investmentsActual, pfBalance } = calculateNetWorth(accounts, goals, projectedInvestments, incomes, expenses, preferences, debts);
   const bestPerforming = projectedInvestments.reduce((best, curr) => curr.projectedReturns > (best?.projectedReturns || 0) ? curr : best, projectedInvestments[0]);
 
   const handleSave = () => {

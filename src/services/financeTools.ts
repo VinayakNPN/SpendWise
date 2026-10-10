@@ -69,7 +69,8 @@ export const financeTools = {
     const investments = getInvestments();
     const incomes = getIncomes();
     const expenses = getAllExpenses();
-    const result = calculateNetWorth(accounts, goals, investments, incomes, expenses);
+    const debts = getDebts();
+    const result = calculateNetWorth(accounts, goals, investments, incomes, expenses, undefined, debts);
     return { tool: 'getNetWorth', data: result, summary: `Net worth: ₹${Math.round(result.netWorth).toLocaleString('en-IN')} (Assets: ₹${Math.round(result.assets).toLocaleString('en-IN')}, Liabilities: ₹${Math.round(result.liabilities).toLocaleString('en-IN')})` };
   },
 

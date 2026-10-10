@@ -32,6 +32,7 @@ import { registerForPushNotificationsAsync } from "./src/services/notifications"
 import { handleSharedIntent } from "./src/services/shareIntentHandler";
 import { BiometricWrapper } from "./src/components/BiometricWrapper";
 import { AppPrivacyToggle } from "./src/components/AppPrivacyToggle";
+import { ShareIntentProvider, useShareIntentContext } from 'expo-share-intent';
 
 // ─── Navigators ───────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ function QueueStackNavigator() {
  * scenarios by listening to AppState changes as well as the initial intent.
  */
 function useShareIntentHandler(navigationRef: React.RefObject<NavigationContainerRef<any> | null>) {
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const lastHandledUri = useRef<string | null>(null);
 
   const processIntent = useCallback(
@@ -159,43 +161,15 @@ function useShareIntentHandler(navigationRef: React.RefObject<NavigationContaine
   );
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-
-    // --- Cold start: detect intent from the initial URL / linking ---
-    // expo-modules exposes the initial intent via Linking on Android
-    const checkInitialIntent = async () => {
-      try {
-        const Linking = require('expo-linking');
-        const initialUrl = await Linking.getInitialURL();
-        if (initialUrl && initialUrl.startsWith('content://')) {
-          await processIntent(initialUrl);
-        }
-      } catch (_) {
-        // Linking not available or no intent
-      }
-    };
-
-    checkInitialIntent();
-
-    // --- Warm start: app comes to foreground with a new share ---
-    let LinkingModule: any = null;
-    try {
-      LinkingModule = require('expo-linking');
-    } catch (_) {}
-
-    const subscription = LinkingModule?.addEventListener?.(
-      'url',
-      (event: { url: string }) => {
-        if (event.url?.startsWith('content://') || event.url?.includes('image')) {
-          processIntent(event.url);
-        }
-      },
-    );
-
-    return () => {
-      subscription?.remove?.();
-    };
-  }, [processIntent]);
+    if (hasShareIntent && shareIntent.files && shareIntent.files.length > 0) {
+      const uri = shareIntent.files[0].path;
+      processIntent(uri);
+      resetShareIntent();
+    } else if (hasShareIntent && shareIntent.text) {
+      // If we ever want to handle text intents, we do it here. For now, just reset.
+      resetShareIntent();
+    }
+  }, [hasShareIntent, shareIntent, processIntent, resetShareIntent]);
 }
 
 // ─── AppContent ───────────────────────────────────────────────────────────────
@@ -280,7 +254,9 @@ export default function App() {
         <AppStoreProvider>
           <ThemeProvider>
             <BiometricWrapper>
-              <AppContent />
+              <ShareIntentProvider options={{ debug: false, resetOnBackground: true }}>
+                <AppContent />
+              </ShareIntentProvider>
             </BiometricWrapper>
           </ThemeProvider>
         </AppStoreProvider>

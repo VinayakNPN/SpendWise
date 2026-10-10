@@ -4,6 +4,7 @@
     "slug": "spend-wise",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "spendwise",
     "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
       "**/*"
@@ -16,25 +17,20 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-image-picker"
-    ],
-    "android": {
-      "package": "com.vinayak_52.spendwise",
-      "intentFilters": [
+      "expo-image-picker",
+      [
+        "expo-share-intent",
         {
-          "action": "android.intent.action.SEND",
-          "autoVerify": true,
-          "data": [
-            { "mimeType": "image/*" },
-            { "mimeType": "image/png" },
-            { "mimeType": "image/jpeg" }
-          ],
-          "category": [
-            "android.intent.category.DEFAULT",
-            "android.intent.category.BROWSABLE"
-          ]
+          "android": {
+            "shareTarget": {
+              "mimeType": "image/*"
+            }
+          }
         }
       ]
+    ],
+    "android": {
+      "package": "com.vinayak_52.spendwise"
     },
     "ios": {
       "bundleIdentifier": "n",

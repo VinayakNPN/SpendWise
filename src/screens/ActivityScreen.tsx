@@ -203,7 +203,7 @@ export const ActivityScreen = () => {
           if (typeTab === "All") return true;
           if (typeTab === "Expenses") return e.type === "EXPENSE" || !e.type;
           if (typeTab === "Income") return e.type === "INCOME";
-          if (typeTab === "Transfers") return e.type === "TRANSFER";
+          if (typeTab === "Self Transfers") return e.type === "TRANSFER";
           return true;
         })
         .filter((e) => {
@@ -246,7 +246,7 @@ export const ActivityScreen = () => {
       <Text style={styles.title}>Transactions</Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }} keyboardShouldPersistTaps="handled">
-        {["All", "Expenses", "Income", "Transfers"].map(t => (
+        {["All", "Expenses", "Income", "Self Transfers"].map(t => (
           <PressableScale key={t} onPress={() => setTypeTab(t)} style={[styles.filterChip, typeTab === t && styles.filterChipActive]}>
             <Text style={[styles.filterText, typeTab === t && styles.filterTextActive]}>{t}</Text>
           </PressableScale>
